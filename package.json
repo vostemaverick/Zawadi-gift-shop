@@ -1,0 +1,29 @@
+{
+  "name": "zawadi-gift-shop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "service-worker.js",
+  "private": true,
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "cap:sync": "node scripts/prepare-web.js && npx cap sync android",
+    "android": "npx cap open android"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vostemaverick/Zawadi-gift-shop.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/vostemaverick/Zawadi-gift-shop/issues"
+  },
+  "homepage": "https://github.com/vostemaverick/Zawadi-gift-shop#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/core": "^8.6.2"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Zawadi Gift Shop",
+  "short_name": "Zawadi",
+  "description": "Gift shop for flowers, hampers, mugs and cards in Chuka and Ndagani.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffafc",
+  "theme_color": "#f472b6",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

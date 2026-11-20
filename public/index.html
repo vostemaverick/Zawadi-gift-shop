@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zawadi Gift Shop | Chuka & Ndagani</title>
+  <meta name="description" content="Zawadi Gift Shop offers flowers, curated hampers, mugs, cards and thoughtful gifts delivered in Chuka and Ndagani." />
+  <meta name="theme-color" content="#f472b6" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Zawadi" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=400&q=80" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fffafc;
+      --surface: #ffffff;
+      --surface-soft: #fff1f5;
+      --pink-dark: #df4c8d;
+      --pink: #f472b6;
+      --pink-light: #ffe4ec;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --gold: #f59e0b;
+      --green: #22c55e;
+      --shadow: 0 18px 40px rgba(17, 24, 39, 0.08);
+      --border: rgba(17, 24, 39, 0.08);
+    }
+
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(180deg, #fff7fb 0%, #fff1f5 100%);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+    }
+
+    .app-shell {
+      max-width: 480px;
+      margin: 0 auto;
+      background: var(--bg);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: clip;
+      overflow-y: visible;
+      box-shadow: 0 0 0 1px rgba(17,24,39,0.04), 0 30px 60px rgba(17,24,39,0.12);
+    }
+
+    .bg-soft { background: var(--pink-light); }
+    .text-pink-shop { color: var(--pink-dark); }
+    .bg-pink-shop { background: var(--pink-dark); }
+    .border-pink-shop { border-color: var(--pink-dark); }
+    .shadow-soft { box-shadow: var(--shadow); }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .nav-link {
+      position: relative;
+      transition: color 0.2s ease;
+    }
+    .nav-link:hover::after,
+    .nav-link.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: -8px;
+      height: 2px;
+      background: var(--pink-dark);
+      border-radius: 999px;
+    }
+
+    .team-card:hover, .product-card:hover {
+      transform: translateY(-3px);
+      transition: transform 0.2s ease;
+    }
+
+    .cart-panel {
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+    }
+    .cart-panel.open {
+      transform: translateX(0);
+    }
+
+    .toast {
+      transform: translateY(12px);
+      opacity: 0;
+      transition: all 0.25s ease;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .mobile-nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      width: 100%;
+      max-width: 480px;
+      z-index: 30;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.5rem;
+      padding: 0.65rem 0.75rem calc(1rem + env(safe-area-inset-bottom));
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.96);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 -10px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .mobile-nav a,
+    .mobile-nav button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      border: 0;
+      background: transparent;
+      color: #475569;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-decoration: none;
+      min-height: 3.3rem;
+    }
+
+    .mobile-nav a.active,
+    .mobile-nav button.active {
+      color: var(--pink-dark);
+    }
+
+    .mobile-nav .nav-icon {
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    @media (min-width: 768px) {
+      body {
+        padding: 1.5rem 0 3rem;
+      }
+
+      .app-shell {
+        border-radius: 2rem;
+        max-width: 420px;
+      }
+
+      .mobile-nav {
+        max-width: 420px;
+      }
+    }
+  </style>
+</head>
+<body class="antialiased">
+  <div class="app-shell">
+  <div class="bg-black text-pink-200 text-center text-xs md:text-sm py-2 px-4">
+    Free delivery in Chuka & Ndagani • Same-day orders before 2pm • WhatsApp: 0722100530
+  </div>
+
+  <header class="sticky top-0 z-40 bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-3">
+      <a href="#home" class="flex min-w-0 items-center gap-3">
+        <div class="w-11 h-11 rounded-full bg-gradient-to-br from-pink-300 to-pink-500 flex items-center justify-center shadow-soft">
+          <span class="text-xl"></span>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-black leading-none">Zawadi Gift Shop</h1>
+          <p class="text-[10px] tracking-[0.25em] text-pink-500 uppercase">Chuka • Ndagani</p>
+        </div>
+      </a>
+
+      <nav class="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-700">
+        <a href="#home" class="nav-link active">Home</a>
+        <a href="#shop" class="nav-link">Shop</a>
+        <a href="#about" class="nav-link">About</a>
+        <a href="#reviews" class="nav-link">Reviews</a>
+        <a href="#contact" class="nav-link">Contact</a>
+      </nav>
+
+      <div class="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+        <button id="installAppButton" class="hidden bg-pink-100 text-pink-shop px-3 py-2 rounded-full text-xs font-bold">Install</button>
+        <button id="cartToggle" class="relative bg-gray-900 text-white px-4 py-2.5 rounded-full text-sm font-semibold hover:bg-pink-500 transition">
+          Cart <span id="cartCount" class="ml-1 inline-flex items-center justify-center min-w-[22px] h-6 px-1.5 rounded-full bg-pink-500 text-xs">0</span>
+        </button>
+        <button id="ownerToggle" class="text-sm font-semibold text-slate-600 hover:text-pink-shop">Owner</button>
+        <a href="https://wa.me/254722100530?text=Hi%20Zawadi%20Gift%20Shop,%20I%20want%20to%20place%20an%20order" class="hidden sm:inline-flex bg-green-500 hover:bg-green-600 text-white px-4 py-2.5 rounded-full text-sm font-semibold transition" target="_blank" rel="noreferrer">WhatsApp</a>
+        <button id="menuButton" class="lg:hidden p-2 rounded-full border border-slate-200 bg-white" aria-label="Toggle menu">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobileMenu" class="hidden lg:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-3 text-sm font-medium text-slate-700">
+      <a href="#home" class="block">Home</a>
+      <a href="#shop" class="block">Shop</a>
+      <a href="#about" class="block">About</a>
+      <a href="#reviews" class="block">Reviews</a>
+      <a href="#contact" class="block">Contact</a>
+      <a href="https://wa.me/254722100530?text=Hi%20Zawadi%20Gift%20Shop,%20I%20want%20to%20place%20an%20order" class="block text-green-600 font-semibold" target="_blank" rel="noreferrer">WhatsApp Order</a>
+    </div>
+  </header>
+
+  <main id="home" class="pb-24">
+    <section class="bg-soft">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-20 grid lg:grid-cols-[1.1fr,0.9fr] gap-10 items-center">
+        <div>
+          <span class="inline-flex items-center px-3 py-1 rounded-full border border-pink-200 bg-white text-pink-shop text-xs font-bold uppercase tracking-[0.25em]">Local gift shop • Chuka, Ndagani</span>
+          <h2 class="mt-6 text-4xl sm:text-5xl lg:text-6xl font-black leading-tight text-slate-900">Thoughtful gifts for every special moment.</h2>
+          <p class="mt-5 text-lg text-slate-600 max-w-xl">Curated hampers, fresh flowers, cozy mugs, elegant cards and personal keepsakes, all wrapped with love and delivered across Chuka & Ndagani.</p>
+
+          <div class="mt-8 flex flex-wrap gap-4">
+            <a href="#shop" class="inline-flex items-center justify-center bg-gray-900 text-white px-6 py-3.5 rounded-full font-semibold hover:bg-pink-500 transition">Shop now</a>
+            <a href="https://wa.me/254722100530?text=Hi%20Zawadi%20Gift%20Shop,%20I%20want%20to%20create%20a%20custom%20hamper" class="inline-flex items-center justify-center border border-pink-300 bg-white text-slate-900 px-6 py-3.5 rounded-full font-semibold hover:border-pink-500 hover:text-pink-shop transition" target="_blank" rel="noreferrer">Create a hamper</a>
+          </div>
+
+          <div class="mt-10 flex flex-wrap gap-6 text-sm font-medium text-slate-600">
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>Same-day delivery</div>
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Gift wrapping</div>
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-pink-400"></span>5-star service</div>
+          </div>
+        </div>
+
+        <div class="relative">
+          <div class="rounded-[2rem] overflow-hidden shadow-soft">
+            <img src="https://images.unsplash.com/photo-1526045478516-99145907023c?auto=format&fit=crop&w=1200&q=80" alt="Gift hamper arrangement" class="w-full h-[560px] object-cover" />
+          </div>
+          <div class="absolute -left-4 bottom-4 bg-white rounded-2xl shadow-soft px-4 py-3 max-w-[220px]">
+            <p class="text-xs uppercase tracking-[0.2em] text-slate-500">Best seller</p>
+            <p class="mt-2 text-lg font-bold text-slate-900">Pink Rose Hamper</p>
+            <p class="text-pink-shop font-bold">KSh 2,500</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <div class="text-3xl mb-2"></div>
+          <p class="font-bold">Custom Mugs</p>
+          <p class="text-sm text-slate-500">Personalized keepsakes</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <div class="text-3xl mb-2"></div>
+          <p class="font-bold">Fresh Flowers</p>
+          <p class="text-sm text-slate-500">Bouquets for every mood</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <div class="text-3xl mb-2"></div>
+          <p class="font-bold">Luxury Hampers</p>
+          <p class="text-sm text-slate-500">Thoughtful, complete gifts</p>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <div class="text-3xl mb-2"></div>
+          <p class="font-bold">Greeting Cards</p>
+          <p class="text-sm text-slate-500">Warm wishes & notes</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="shop" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-8">
+        <div>
+          <p class="text-sm uppercase tracking-[0.2em] text-pink-shop font-semibold">Shop</p>
+          <h3 class="text-3xl font-black text-slate-900">Popular picks</h3>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <div class="relative min-w-[220px]">
+            <input id="searchInput" type="search" placeholder="Search gifts" class="w-full rounded-full border border-slate-200 bg-white py-2.5 pl-10 pr-4 focus:border-pink-400 focus:outline-none" />
+            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">⌕</span>
+          </div>
+          <select id="categoryFilter" class="rounded-full border border-slate-200 bg-white px-4 py-2.5 focus:border-pink-400 focus:outline-none">
+            <option value="all">All categories</option>
+            <option value="mugs">Mugs</option>
+            <option value="flowers">Flowers</option>
+            <option value="hampers">Hampers</option>
+            <option value="cards">Cards</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="productGrid" class="grid grid-cols-1 gap-6"></div>
+    </section>
+
+    <section id="about" class="bg-gray-900 text-white py-14">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <p class="text-sm uppercase tracking-[0.2em] text-pink-300 font-semibold">Why customers love us</p>
+          <h3 class="mt-3 text-3xl font-black">Gifts that feel personal, warm and memorable.</h3>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-6">
+          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+            <div class="text-2xl mb-3"></div>
+            <h4 class="font-bold mb-2">Gift-ready packaging</h4>
+            <p class="text-slate-300 text-sm">Every order is carefully wrapped and prepared for an unforgettable first impression.</p>
+          </div>
+          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+            <div class="text-2xl mb-3"></div>
+            <h4 class="font-bold mb-2">Local delivery</h4>
+            <p class="text-slate-300 text-sm">Fast and reliable delivery around Chuka and Ndagani with friendly service.</p>
+          </div>
+          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+            <div class="text-2xl mb-3"></div>
+            <h4 class="font-bold mb-2">Custom orders</h4>
+            <p class="text-slate-300 text-sm">Tell us your budget, theme, or recipient and we’ll make the perfect hamper.</p>
+          </div>
+          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+            <div class="text-2xl mb-3"></div>
+            <h4 class="font-bold mb-2">Lipa na M-Pesa</h4>
+            <p class="text-slate-300 text-sm">Convenient payment options for simple and secure purchasing.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="reviews" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+      <div class="text-center mb-10">
+        <p class="text-sm uppercase tracking-[0.2em] text-pink-shop font-semibold">Feedback</p>
+        <h3 class="text-3xl font-black text-slate-900">What our customers say</h3>
+      </div>
+      <div class="grid md:grid-cols-3 gap-6">
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm team-card">
+          <div class="text-amber-400 text-xl mb-3">★★★★★</div>
+          <p class="text-slate-600">“The hamper looked stunning and the delivery was super quick. My sister loved it!”</p>
+          <div class="mt-5 font-bold text-slate-900">M. Njeri</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm team-card">
+          <div class="text-amber-400 text-xl mb-3">★★★★★</div>
+          <p class="text-slate-600">“Beautiful flower arrangement and really friendly service. We’ll definitely order again.”</p>
+          <div class="mt-5 font-bold text-slate-900">A. Kibet</div>
+        </div>
+        <div class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm team-card">
+          <div class="text-amber-400 text-xl mb-3">★★★★★</div>
+          <p class="text-slate-600">“A very thoughtful gift shop with quality products and great packaging. Highly recommended.”</p>
+          <div class="mt-5 font-bold text-slate-900">P. Mwende</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="contact" class="bg-black text-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-32 grid md:grid-cols-3 gap-10">
+      <div>
+        <h4 class="text-2xl font-black text-pink-300">Zawadi Gift Shop</h4>
+        <p class="mt-4 text-slate-300">Your local destination for gifts, flowers, hampers, mugs and personal keepsakes in Chuka and Ndagani.</p>
+      </div>
+      <div>
+        <h5 class="font-bold mb-3">Contact details</h5>
+        <ul class="space-y-2 text-slate-300 text-sm">
+          <li> Chuka, Ndagani, Kenya</li>
+          <li> 0722100530</li>
+          <li> WhatsApp orders available</li>
+          <li> Lipa na M-Pesa available</li>
+        </ul>
+      </div>
+      <div>
+        <h5 class="font-bold mb-3">Need a custom gift?</h5>
+        <p class="text-slate-300 text-sm mb-4">Message us for special occasions, themed hampers and personalized gifts.</p>
+        <a href="https://wa.me/254722100530?text=Hi%20Zawadi%20Gift%20Shop,%20I%20need%20a%20custom%20gift%20order" class="inline-flex bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-full font-semibold transition" target="_blank" rel="noreferrer">Chat on WhatsApp</a>
+      </div>
+    </div>
+  </footer>
+
+  <aside id="cartPanel" class="cart-panel fixed top-0 right-0 z-50 h-full w-full max-w-md flex flex-col bg-white shadow-2xl border-l border-slate-200">
+    <div class="shrink-0 flex items-center justify-between p-5 border-b border-slate-200">
+      <h3 class="text-xl font-black">Your cart</h3>
+      <button id="closeCart" class="text-2xl text-slate-500">×</button>
+    </div>
+
+    <div class="flex-1 min-h-0 p-5 overflow-y-auto">
+      <div id="cartItems" class="space-y-4"></div>
+      <div id="emptyCart" class="hidden mt-8 text-center text-slate-500">
+        <div class="text-4xl mb-4">🛍️</div>
+        <p class="font-semibold text-slate-700">Your cart is empty</p>
+        <p class="text-sm mt-2">Add a few gifts to get started.</p>
+      </div>
+    </div>
+
+    <div class="shrink-0 max-h-[70vh] overflow-y-auto border-t border-slate-200 p-5 bg-slate-50">
+      <div class="flex items-center justify-between text-sm text-slate-600">
+        <span>Subtotal</span>
+        <span id="subtotal">KSh 0</span>
+      </div>
+      <div class="flex items-center justify-between text-lg font-black mt-3 text-slate-900">
+        <span>Total</span>
+        <span id="total">KSh 0</span>
+      </div>
+
+      <form id="checkoutForm" class="mt-5 space-y-3">
+        <input id="customerName" type="text" placeholder="Full name" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus:border-pink-400 focus:outline-none" required />
+        <input id="customerPhone" type="tel" placeholder="Phone number" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus:border-pink-400 focus:outline-none" required />
+        <input id="customerLocation" type="text" placeholder="Delivery location" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus:border-pink-400 focus:outline-none" required />
+        <textarea id="customerNote" rows="3" placeholder="Delivery note (optional)" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus:border-pink-400 focus:outline-none"></textarea>
+        <button id="placeOrderButton" type="submit" class="w-full bg-pink-shop hover:bg-pink-600 text-white rounded-xl py-3 font-bold transition">Place order</button>
+        <p id="checkoutStatus" class="hidden text-sm" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </aside>
+
+  <div id="toast" class="toast fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] bg-gray-900 text-white px-4 py-3 rounded-full text-sm shadow-lg">
+    Item added to cart
+  </div>
+
+  <section id="ownerPanel" class="hidden fixed inset-0 z-[70] bg-black bg-opacity-60 p-4 overflow-y-auto" aria-labelledby="ownerTitle" aria-modal="true" role="dialog">
+    <div class="max-w-3xl mx-auto my-6 bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div class="flex items-center justify-between p-5 border-b border-slate-200">
+        <div>
+          <h2 id="ownerTitle" class="text-xl font-black">Product management</h2>
+          <p id="ownerStatus" class="text-sm text-slate-500 mt-1">Connect to the shared catalog to manage products.</p>
+        </div>
+        <button id="closeOwnerPanel" type="button" class="text-2xl text-slate-500" aria-label="Close owner panel">×</button>
+      </div>
+
+      <div id="ownerSetupNotice" class="hidden m-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">
+        Shared product management is not configured yet. Follow the setup steps in <code>SETUP.md</code>, then add your Supabase project URL and public anon key in <code>index.html</code>.
+      </div>
+
+      <form id="ownerLoginForm" class="hidden p-5 space-y-4">
+        <p class="text-sm text-slate-600">Sign in with the owner's account to publish and update products.</p>
+        <label class="block text-sm font-semibold">Owner email
+          <input id="ownerEmail" type="email" autocomplete="username" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-pink-400 focus:outline-none">
+        </label>
+        <label class="block text-sm font-semibold">Password
+          <input id="ownerPassword" type="password" autocomplete="current-password" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-pink-400 focus:outline-none">
+        </label>
+        <button type="submit" class="w-full bg-gray-900 text-white rounded-xl py-3 font-bold hover:bg-pink-500">Sign in</button>
+        <button id="forgotOwnerPassword" type="button" class="w-full text-sm font-semibold text-pink-shop">Forgot password?</button>
+        <p id="ownerResetStatus" class="hidden text-sm" role="status" aria-live="polite"></p>
+        <p id="ownerLoginError" class="hidden text-sm text-red-600" role="alert"></p>
+      </form>
+
+      <form id="ownerPasswordForm" class="hidden p-5 space-y-4">
+        <p id="ownerPasswordPrompt" class="text-sm text-slate-600"></p>
+        <label class="block text-sm font-semibold">New password
+          <input id="ownerNewPassword" type="password" minlength="8" autocomplete="new-password" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-pink-400 focus:outline-none">
+        </label>
+        <label class="block text-sm font-semibold">Confirm new password
+          <input id="ownerConfirmPassword" type="password" minlength="8" autocomplete="new-password" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-pink-400 focus:outline-none">
+        </label>
+        <div class="flex flex-wrap gap-3">
+          <button type="submit" class="bg-pink-shop text-white px-5 py-2.5 rounded-xl font-bold hover:bg-pink-600">Update password</button>
+          <button id="cancelOwnerPasswordUpdate" type="button" class="border border-slate-300 px-5 py-2.5 rounded-xl font-semibold">Cancel</button>
+        </div>
+        <p id="ownerPasswordStatus" class="hidden text-sm" role="status" aria-live="polite"></p>
+      </form>
+
+      <div id="ownerDashboard" class="hidden p-5">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+          <p id="ownerIdentity" class="text-sm text-slate-600"></p>
+          <div class="flex flex-wrap gap-3">
+            <button id="changeOwnerPassword" type="button" class="text-sm font-semibold text-pink-shop">Change password</button>
+            <button id="ownerSignOut" type="button" class="text-sm font-semibold text-pink-shop">Sign out</button>
+          </div>
+        </div>
+
+        <form id="productForm" class="grid sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-200">
+          <input id="productId" type="hidden">
+          <label class="text-sm font-semibold">Product name
+            <input id="productName" type="text" maxlength="100" required class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          </label>
+          <label class="text-sm font-semibold">Category
+            <select id="productCategory" required class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+              <option value="mugs">Mugs</option><option value="flowers">Flowers</option><option value="hampers">Hampers</option><option value="cards">Cards</option>
+            </select>
+          </label>
+          <label class="text-sm font-semibold">Price (KSh)
+            <input id="productPrice" type="number" min="1" step="1" required class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          </label>
+          <label class="text-sm font-semibold">Was price (optional)
+            <input id="productOriginalPrice" type="number" min="1" step="1" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          </label>
+          <label class="text-sm font-semibold sm:col-span-2">Image URL
+            <input id="productImage" type="url" maxlength="1000" required placeholder="https://..." class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          </label>
+          <label class="text-sm font-semibold">Badge
+            <input id="productBadge" type="text" maxlength="30" placeholder="New, popular, best seller..." class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          </label>
+          <label class="text-sm font-semibold">Rating (optional)
+            <input id="productRating" type="number" min="0" max="5" step="0.1" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
+          </label>
+          <label class="text-sm font-semibold sm:col-span-2">Description
+            <textarea id="productDescription" rows="2" maxlength="300" required class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5"></textarea>
+          </label>
+          <label class="sm:col-span-2 flex items-center gap-2 text-sm font-semibold">
+            <input id="productPublished" type="checkbox" checked class="rounded border-slate-300 text-pink-600">
+            Visible in the shop
+          </label>
+          <div class="sm:col-span-2 flex flex-wrap gap-3">
+            <button id="saveProductButton" type="submit" class="bg-pink-shop text-white px-5 py-2.5 rounded-xl font-bold hover:bg-pink-600">Add product</button>
+            <button id="cancelEditButton" type="button" class="hidden border border-slate-300 px-5 py-2.5 rounded-xl font-semibold">Cancel edit</button>
+          </div>
+          <p id="productFormMessage" class="hidden sm:col-span-2 text-sm" role="status"></p>
+        </form>
+
+        <h3 class="font-bold mt-7 mb-3">Products</h3>
+        <div id="ownerProductList" class="space-y-3"></div>
+
+        <div class="mt-8 flex items-center justify-between gap-3">
+          <h3 class="font-bold">Incoming orders</h3>
+          <button id="refreshOrdersButton" type="button" class="text-sm font-semibold text-pink-shop">Refresh</button>
+        </div>
+        <p id="ownerOrderStatus" class="text-sm text-slate-500 mt-2" role="status"></p>
+        <div id="ownerOrderList" class="space-y-3 mt-3"></div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'https://rldomswxlgcahqwqfjrh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsZG9tc3d4bGdjYWhxd3FmanJoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzNDMzOTIsImV4cCI6MjEwOTkxOTM5Mn0.6WR4MIULJ4VleOVSJ_zq_4vUXeWmQzFc8gUDS3YOHj4';
+    const supabaseConfigured = SUPABASE_URL.startsWith('https://')
+      && SUPABASE_URL.includes('.supabase.co')
+      && SUPABASE_ANON_KEY.startsWith('eyJ')
+      && !SUPABASE_URL.includes('YOUR_')
+      && !SUPABASE_ANON_KEY.includes('YOUR_');
+    const supabaseClient = supabaseConfigured && window.supabase
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    const starterProducts = [
+      { id: '00000000-0000-4000-8000-000000000001', name: 'Floral Ceramic Mug', category: 'mugs', price: 1200, originalPrice: 1500, rating: 4.8, badge: 'Popular', image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=800&q=80', description: 'Handcrafted ceramic mug with floral detailing.' },
+      { id: '00000000-0000-4000-8000-000000000002', name: 'Pink Rose Hamper', category: 'hampers', price: 2500, originalPrice: 3100, rating: 5, badge: 'Best seller', image: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=800&q=80', description: 'A luxurious pink rose arrangement with sweet treats.' },
+      { id: '00000000-0000-4000-8000-000000000003', name: 'Luxury Gift Box', category: 'hampers', price: 3200, originalPrice: 3900, rating: 4.9, badge: 'Premium', image: 'https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?auto=format&fit=crop&w=800&q=80', description: 'Curated gift box packed with premium goodies.' },
+      { id: '00000000-0000-4000-8000-000000000004', name: 'Romantic Rose Bouquet', category: 'flowers', price: 1800, originalPrice: 2200, rating: 4.8, badge: 'Fresh', image: 'https://images.unsplash.com/photo-1525310072745-f49212b5ac6d?auto=format&fit=crop&w=800&q=80', description: 'Freshly arranged roses for a romantic gesture.' },
+      { id: '00000000-0000-4000-8000-000000000005', name: 'Mini Celebration Basket', category: 'hampers', price: 2100, originalPrice: 2600, rating: 4.7, badge: 'New', image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=800&q=80', description: 'Perfect for birthdays, thank-yous and milestones.' },
+      { id: '00000000-0000-4000-8000-000000000006', name: 'Love Notes Card Set', category: 'cards', price: 600, originalPrice: 900, rating: 4.9, badge: 'Cute', image: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?auto=format&fit=crop&w=800&q=80', description: 'Beautiful note cards with elegant design details.' },
+      { id: '00000000-0000-4000-8000-000000000007', name: 'Sunflower Bouquet', category: 'flowers', price: 1500, originalPrice: 1900, rating: 4.6, badge: 'Trending', image: 'https://images.unsplash.com/photo-1468327768560-75b778cbb551?auto=format&fit=crop&w=800&q=80', description: 'Bright and cheerful bouquet for joyful moments.' },
+      { id: '00000000-0000-4000-8000-000000000008', name: 'Personalized Coffee Mug', category: 'mugs', price: 1350, originalPrice: 1650, rating: 4.8, badge: 'Custom', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80', description: 'A custom mug for birthdays, anniversaries or thank yous.' }
+    ];
+    let products = [...starterProducts];
+
+    const formatMoney = (amount) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(amount);
+    const cartKey = 'zawadi-shop-cart';
+    let cartLoadError = false;
+
+    const state = {
+      activeCategory: 'all',
+      searchTerm: '',
+      catalogError: '',
+      cart: loadSavedCart()
+    };
+
+    const productGrid = document.getElementById('productGrid');
+    const searchInput = document.getElementById('searchInput');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const cartItems = document.getElementById('cartItems');
+    const emptyCart = document.getElementById('emptyCart');
+    const cartCount = document.getElementById('cartCount');
+    const subtotalEl = document.getElementById('subtotal');
+    const totalEl = document.getElementById('total');
+    const cartPanel = document.getElementById('cartPanel');
+    const toast = document.getElementById('toast');
+    const ownerPanel = document.getElementById('ownerPanel');
+    const ownerLoginForm = document.getElementById('ownerLoginForm');
+    const ownerPasswordForm = document.getElementById('ownerPasswordForm');
+    const ownerDashboard = document.getElementById('ownerDashboard');
+    const ownerSetupNotice = document.getElementById('ownerSetupNotice');
+    const ownerLoginError = document.getElementById('ownerLoginError');
+    const productForm = document.getElementById('productForm');
+    const ownerProductList = document.getElementById('ownerProductList');
+    const installAppButton = document.getElementById('installAppButton');
+    let ownerProducts = [];
+    let ownerOrders = [];
+    let deferredInstallPrompt = null;
+    let ownerPasswordFlow = null;
+
+    function loadSavedCart() {
+      try {
+        const savedCart = JSON.parse(localStorage.getItem(cartKey) || '[]');
+        if (!Array.isArray(savedCart)) throw new Error('Saved cart is not an array.');
+
+        const legacyIds = new Map(starterProducts.map((product, index) => [String(index + 1), String(product.id)]));
+        return savedCart.flatMap((item) => {
+          if (!item || !Number.isSafeInteger(item.quantity) || item.quantity <= 0 || !item.id) {
+            cartLoadError = true;
+            return [];
+          }
+          return [{ ...item, id: legacyIds.get(String(item.id)) || item.id }];
+        });
+      } catch (error) {
+        console.error('Unable to restore the saved cart:', error);
+        cartLoadError = true;
+        return [];
+      }
+    }
+
+    function setProductFormMessage(message, isError = false) {
+      const element = document.getElementById('productFormMessage');
+      element.textContent = message;
+      element.classList.toggle('hidden', !message);
+      element.classList.toggle('text-red-600', isError);
+      element.classList.toggle('text-green-700', !isError);
+    }
+
+    function resetProductForm() {
+      productForm.reset();
+      document.getElementById('productId').value = '';
+      document.getElementById('productPublished').checked = true;
+      document.getElementById('saveProductButton').textContent = 'Add product';
+      document.getElementById('cancelEditButton').classList.add('hidden');
+      setProductFormMessage('');
+    }
+
+    function renderOwnerProducts() {
+      ownerProductList.innerHTML = ownerProducts.length
+        ? ownerProducts.map((product) => `
+          <article class="flex flex-wrap items-center justify-between gap-3 border border-slate-200 rounded-xl p-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <img src="${escapeHTML(safeImageUrl(product.image))}" alt="" class="w-14 h-14 rounded-lg object-cover bg-slate-100">
+              <div class="min-w-0">
+                <p class="font-semibold truncate">${escapeHTML(product.name)}</p>
+                <p class="text-sm text-slate-500">${formatMoney(product.price)} · ${escapeHTML(product.category)} · ${product.isPublished ? 'Published' : 'Hidden'}</p>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" class="edit-product px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold" data-id="${escapeHTML(product.id)}">Edit</button>
+              <button type="button" class="delete-product px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm font-semibold" data-id="${escapeHTML(product.id)}">Delete</button>
+            </div>
+          </article>
+        `).join('')
+        : '<p class="text-sm text-slate-500 border border-dashed rounded-xl p-5 text-center">No products yet. Use the form above to add one.</p>';
+    }
+
+    function renderOwnerOrders() {
+      ownerOrderList.innerHTML = ownerOrders.length
+        ? ownerOrders.map((order) => `
+          <article class="border border-slate-200 rounded-xl p-4">
+            <div class="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p class="font-bold">${escapeHTML(order.customer_name)} <span class="font-normal text-slate-500">· ${escapeHTML(order.customer_phone)}</span></p>
+                <p class="text-xs text-slate-500 mt-1">Order ${escapeHTML(order.id.slice(0, 8).toUpperCase())} · ${escapeHTML(new Date(order.created_at).toLocaleString('en-KE'))}</p>
+              </div>
+              <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHTML(order.status)}</span>
+            </div>
+            <p class="text-sm text-slate-600 mt-2">Deliver to: ${escapeHTML(order.delivery_location)}</p>
+            ${order.customer_note ? `<p class="text-sm text-slate-600 mt-1">Note: ${escapeHTML(order.customer_note)}</p>` : ''}
+            <ul class="mt-3 space-y-1 text-sm text-slate-700">
+              ${order.order_items.map((item) => `<li>${item.quantity} × ${escapeHTML(item.product_name)} · ${formatMoney(item.unit_price * item.quantity)}</li>`).join('')}
+            </ul>
+            <p class="mt-3 text-right font-bold">${formatMoney(order.total)}</p>
+          </article>
+        `).join('')
+        : '<p class="text-sm text-slate-500 border border-dashed rounded-xl p-5 text-center">No orders have been placed yet.</p>';
+    }
+
+    async function refreshOwnerOrders() {
+      const status = document.getElementById('ownerOrderStatus');
+      status.textContent = 'Loading orders...';
+      const { data, error } = await supabaseClient
+        .from('orders')
+        .select('id,customer_name,customer_phone,delivery_location,customer_note,total,status,created_at,order_items(product_name,quantity,unit_price)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (error) {
+        console.error('Unable to load incoming orders:', error.message);
+        status.textContent = 'Could not load orders: ' + error.message;
+        return;
+      }
+      ownerOrders = data || [];
+      status.textContent = '';
+      renderOwnerOrders();
+    }
+
+    async function refreshOwnerProducts() {
+      const { data, error } = await supabaseClient
+        .from('products')
+        .select('id,name,category,price,original_price,rating,badge,image,description,is_published')
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Unable to load products for management:', error.message);
+        setProductFormMessage('Could not load products: ' + error.message, true);
+        return;
+      }
+      ownerProducts = data.map(mapDatabaseProduct);
+      renderOwnerProducts();
+    }
+
+    function setOwnerPasswordStatus(message, isError = false) {
+      const status = document.getElementById('ownerPasswordStatus');
+      status.textContent = message;
+      status.classList.toggle('hidden', !message);
+      status.classList.toggle('text-red-600', isError);
+      status.classList.toggle('text-green-700', !isError);
+    }
+
+    function showOwnerPasswordForm(flow) {
+      ownerPasswordFlow = flow;
+      ownerPasswordForm.reset();
+      setOwnerPasswordStatus('');
+      document.getElementById('ownerPasswordPrompt').textContent = flow === 'recovery'
+        ? 'Choose a new password for the owner account.'
+        : 'Enter a new password for the owner account.';
+      ownerPasswordForm.classList.remove('hidden');
+      ownerPanel.classList.remove('hidden');
+      if (flow === 'recovery') {
+        ownerLoginForm.classList.add('hidden');
+        ownerDashboard.classList.add('hidden');
+        document.getElementById('ownerStatus').textContent = 'Reset your owner password.';
+      }
+    }
+
+    async function updateOwnerView(user) {
+      const supabaseReady = supabaseConfigured && Boolean(supabaseClient);
+      const isOwner = supabaseReady && user?.app_metadata?.role === 'owner';
+      ownerPasswordForm.classList.add('hidden');
+      ownerPasswordFlow = null;
+      if (supabaseConfigured && !supabaseClient) {
+        ownerSetupNotice.textContent = 'The Supabase client could not load. Check your internet connection and try again.';
+      }
+      ownerSetupNotice.classList.toggle('hidden', supabaseReady);
+      ownerLoginForm.classList.toggle('hidden', !supabaseReady || isOwner);
+      ownerDashboard.classList.toggle('hidden', !isOwner);
+      document.getElementById('ownerStatus').textContent = !supabaseConfigured
+        ? 'Shared catalog setup is required.'
+        : !supabaseClient ? 'Supabase client unavailable. Check your connection and reload.'
+          : isOwner ? 'Manage products in the shared catalog.' : 'Owner sign-in required.';
+      if (isOwner) {
+        ownerLoginError.classList.add('hidden');
+        document.getElementById('ownerIdentity').textContent = `Signed in as ${user.email}`;
+        await Promise.all([refreshOwnerProducts(), refreshOwnerOrders()]);
+      }
+    }
+
+    function escapeHTML(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[character]);
+    }
+
+    function safeImageUrl(value) {
+      try {
+        const url = new URL(value);
+        return url.protocol === 'https:' ? url.href : '';
+      } catch {
+        return '';
+      }
+    }
+
+    function mapDatabaseProduct(product) {
+      return {
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        price: Number(product.price),
+        originalPrice: product.original_price === null ? null : Number(product.original_price),
+        rating: Number(product.rating || 0),
+        badge: product.badge || '',
+        image: product.image,
+        description: product.description,
+        isPublished: product.is_published
+      };
+    }
+
+    async function loadProducts() {
+      if (!supabaseConfigured) return;
+      if (!supabaseClient) {
+        console.error('Unable to load the shared product catalog: Supabase client is unavailable.');
+        products = [...starterProducts];
+        state.catalogError = 'The shared catalog client could not load, so the local favorites are showing instead.';
+        renderProducts();
+        showToast('Could not connect to the shared catalog.');
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient
+          .from('products')
+          .select('id,name,category,price,original_price,rating,badge,image,description,is_published')
+          .eq('is_published', true)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        products = data.map(mapDatabaseProduct);
+        state.catalogError = '';
+        refreshCartFromCatalog();
+        renderProducts();
+      } catch (error) {
+        console.error('Unable to load the shared product catalog:', error.message);
+        products = [...starterProducts];
+        state.catalogError = 'The shared catalog could not be loaded, so the local favorites are showing instead.';
+        renderProducts();
+        showToast('Could not load the latest catalog.');
+      }
+    }
+
+    function refreshCartFromCatalog() {
+      const productsById = new Map(products.map((product) => [String(product.id), product]));
+      let changed = false;
+      const refreshedCart = state.cart.flatMap((item) => {
+        const currentProduct = productsById.get(String(item.id));
+        if (!currentProduct) {
+          changed = true;
+          return [];
+        }
+        if (item.price !== currentProduct.price || item.name !== currentProduct.name || item.image !== currentProduct.image) changed = true;
+        return [{ ...currentProduct, quantity: item.quantity }];
+      });
+      if (changed) {
+        state.cart = refreshedCart;
+        persistCart();
+        updateCartUI();
+      }
+    }
+
+    function persistCart() {
+      try {
+        localStorage.setItem(cartKey, JSON.stringify(state.cart));
+      } catch (error) {
+        console.error('Unable to save the cart:', error);
+        showToast('Cart changes could not be saved on this device.');
+      }
+    }
+
+    function getFilteredProducts() {
+      const normalizedSearch = state.searchTerm.trim().toLowerCase();
+      return products.filter((product) => {
+        const categoryMatch = state.activeCategory === 'all' || product.category === state.activeCategory;
+        const searchMatch = !normalizedSearch || [product.name, product.description, product.category].join(' ').toLowerCase().includes(normalizedSearch);
+        return categoryMatch && searchMatch;
+      });
+    }
+
+    function renderProducts() {
+      const filteredProducts = getFilteredProducts();
+
+      if (!filteredProducts.length) {
+        productGrid.innerHTML = `
+          <div class="col-span-full bg-white border border-dashed border-slate-200 rounded-2xl p-10 text-center">
+            <p class="text-3xl mb-3">🌷</p>
+            <h4 class="text-xl font-bold">${state.catalogError ? 'Catalog unavailable' : 'No gifts match your search'}</h4>
+            <p class="text-slate-500 mt-2">${state.catalogError || 'Try a different category or keyword.'}</p>
+          </div>
+        `;
+        return;
+      }
+
+      productGrid.innerHTML = filteredProducts.map((product) => `
+        <article class="product-card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition">
+          <div class="relative">
+            <img src="${escapeHTML(safeImageUrl(product.image))}" alt="${escapeHTML(product.name)}" class="w-full h-56 object-cover" />
+            ${product.badge ? `<span class="absolute top-3 left-3 bg-white bg-opacity-90 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700">${escapeHTML(product.badge)}</span>` : ''}
+          </div>
+          <div class="p-4">
+            <div class="flex items-center justify-between gap-3">
+              <h4 class="font-bold text-lg text-slate-900">${escapeHTML(product.name)}</h4>
+              ${product.rating ? `<span class="text-amber-500 text-sm">★ ${escapeHTML(product.rating)}</span>` : ''}
+            </div>
+            <p class="text-sm text-slate-500 mt-2 min-h-[42px]">${escapeHTML(product.description)}</p>
+            <div class="mt-4 grid gap-3">
+              <div>
+                <p class="text-xl font-black text-pink-shop">${formatMoney(product.price)}</p>
+                ${product.originalPrice && product.originalPrice > product.price ? `<p class="text-xs text-slate-400 line-through">${formatMoney(product.originalPrice)}</p>` : ''}
+              </div>
+              <button class="add-to-cart w-full bg-gray-900 hover:bg-pink-500 text-white px-4 py-2 rounded-full text-sm font-semibold transition" data-id="${escapeHTML(product.id)}">Add to cart</button>
+            </div>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function updateCartUI() {
+      const totalItems = state.cart.reduce((sum, item) => sum + item.quantity, 0);
+      cartCount.textContent = totalItems;
+      const subtotal = state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      subtotalEl.textContent = formatMoney(subtotal);
+      totalEl.textContent = formatMoney(subtotal);
+
+      if (!state.cart.length) {
+        emptyCart.classList.remove('hidden');
+        cartItems.innerHTML = '';
+        return;
+      }
+
+      emptyCart.classList.add('hidden');
+      cartItems.innerHTML = state.cart.map((item) => `
+        <div class="flex gap-3 border border-slate-200 rounded-2xl p-3 bg-white">
+          <img src="${escapeHTML(safeImageUrl(item.image))}" alt="${escapeHTML(item.name)}" class="w-20 h-20 rounded-xl object-cover" />
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-bold text-slate-900 text-sm">${escapeHTML(item.name)}</p>
+                <p class="text-xs text-slate-500 mt-1">${formatMoney(item.price)}</p>
+              </div>
+              <button class="remove-item text-slate-400 hover:text-red-500 text-xl" data-id="${escapeHTML(item.id)}" aria-label="Remove ${escapeHTML(item.name)}">×</button>
+            </div>
+            <div class="mt-3 flex items-center justify-between">
+              <div class="flex items-center gap-2 bg-slate-100 rounded-full px-2 py-1">
+                <button class="decrease-qty text-slate-700 text-lg leading-none" data-id="${escapeHTML(item.id)}">−</button>
+                <span class="text-sm font-semibold min-w-[20px] text-center">${item.quantity}</span>
+                <button class="increase-qty text-slate-700 text-lg leading-none" data-id="${escapeHTML(item.id)}">+</button>
+              </div>
+              <strong class="text-sm text-slate-900">${formatMoney(item.price * item.quantity)}</strong>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function addToCart(productId) {
+      const product = products.find((item) => String(item.id) === String(productId));
+      if (!product) return;
+
+      const existingItem = state.cart.find((item) => String(item.id) === String(product.id));
+      if (existingItem) {
+        existingItem.quantity += 1;
+      } else {
+        state.cart.push({ ...product, quantity: 1 });
+      }
+
+      persistCart();
+      updateCartUI();
+      openCart();
+      showToast(`${product.name} added to cart`);
+    }
+
+    function removeFromCart(productId) {
+      state.cart = state.cart.filter((item) => String(item.id) !== String(productId));
+      persistCart();
+      updateCartUI();
+    }
+
+    function adjustQuantity(productId, delta) {
+      const item = state.cart.find((entry) => String(entry.id) === String(productId));
+      if (!item) return;
+
+      item.quantity += delta;
+      if (item.quantity <= 0) {
+        removeFromCart(productId);
+        return;
+      }
+
+      persistCart();
+      updateCartUI();
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      clearTimeout(showToast.timer);
+      showToast.timer = setTimeout(() => toast.classList.remove('show'), 1800);
+    }
+
+    function openCart() {
+      cartPanel.classList.add('open');
+    }
+
+    function closeCart() {
+      cartPanel.classList.remove('open');
+    }
+
+    searchInput.addEventListener('input', (event) => {
+      state.searchTerm = event.target.value;
+      renderProducts();
+    });
+
+    categoryFilter.addEventListener('change', (event) => {
+      state.activeCategory = event.target.value;
+      renderProducts();
+    });
+
+    document.addEventListener('click', (event) => {
+      if (event.target.closest('#navCartButton')) {
+        cartPanel.classList.contains('open') ? closeCart() : openCart();
+      }
+
+      const addButton = event.target.closest('.add-to-cart');
+      if (addButton) {
+        addToCart(addButton.dataset.id);
+      }
+
+      const removeButton = event.target.closest('.remove-item');
+      if (removeButton) {
+        removeFromCart(removeButton.dataset.id);
+      }
+
+      const increaseButton = event.target.closest('.increase-qty');
+      if (increaseButton) {
+        adjustQuantity(increaseButton.dataset.id, 1);
+      }
+
+      const decreaseButton = event.target.closest('.decrease-qty');
+      if (decreaseButton) {
+        adjustQuantity(decreaseButton.dataset.id, -1);
+      }
+    });
+
+    document.getElementById('cartToggle').addEventListener('click', () => {
+      cartPanel.classList.contains('open') ? closeCart() : openCart();
+    });
+    document.getElementById('closeCart').addEventListener('click', closeCart);
+
+    document.getElementById('menuButton').addEventListener('click', () => {
+      document.getElementById('mobileMenu').classList.toggle('hidden');
+    });
+    document.getElementById('mobileMenu').addEventListener('click', (event) => {
+      if (event.target.closest('a')) document.getElementById('mobileMenu').classList.add('hidden');
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      closeCart();
+      ownerPanel.classList.add('hidden');
+      document.getElementById('mobileMenu').classList.add('hidden');
+    });
+
+    if (installAppButton) {
+      window.addEventListener('beforeinstallprompt', (event) => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        installAppButton.classList.remove('hidden');
+      });
+
+      installAppButton.addEventListener('click', async () => {
+        if (!deferredInstallPrompt) return;
+        const installPrompt = deferredInstallPrompt;
+        deferredInstallPrompt = null;
+        installAppButton.classList.add('hidden');
+        try {
+          await installPrompt.prompt();
+          await installPrompt.userChoice;
+        } catch (error) {
+          console.error('Unable to open the app installation prompt:', error);
+          showToast('Could not open the installation prompt.');
+        }
+      });
+    }
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch((error) => {
+          console.warn('Service worker registration failed:', error);
+        });
+      });
+    }
+
+    document.getElementById('ownerToggle').addEventListener('click', async () => {
+      ownerPanel.classList.remove('hidden');
+      if (!supabaseConfigured || !supabaseClient) {
+        updateOwnerView(null);
+        return;
+      }
+      const { data, error } = await supabaseClient.auth.getSession();
+      if (error) {
+        console.error('Unable to check owner sign-in:', error.message);
+        showToast('Could not check owner sign-in status.');
+        return;
+      }
+      await updateOwnerView(data.session?.user || null);
+    });
+
+    document.getElementById('closeOwnerPanel').addEventListener('click', () => {
+      ownerPanel.classList.add('hidden');
+    });
+
+    document.getElementById('forgotOwnerPassword').addEventListener('click', async () => {
+      const email = document.getElementById('ownerEmail').value.trim();
+      const status = document.getElementById('ownerResetStatus');
+      status.classList.remove('text-red-600', 'text-green-700');
+      status.classList.add('text-red-600');
+      status.textContent = '';
+      status.classList.add('hidden');
+      if (!email || !document.getElementById('ownerEmail').checkValidity()) {
+        status.textContent = 'Enter a valid owner email address first.';
+        status.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const isCapacitorOrigin = window.location.protocol === 'capacitor:'
+          || (window.location.hostname === 'localhost' && !window.location.port);
+        const resetOptions = isCapacitorOrigin
+          ? undefined
+          : { redirectTo: new URL(window.location.pathname, window.location.origin).toString() };
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(email, resetOptions);
+        if (error) throw error;
+        status.classList.remove('text-red-600');
+        status.classList.add('text-green-700');
+        status.textContent = 'If an owner account exists for that email, a password reset link has been sent. Check your inbox and spam folder.';
+        status.classList.remove('hidden');
+      } catch (error) {
+        console.error('Unable to request owner password reset:', error.message);
+        status.textContent = 'Could not send a reset email: ' + error.message;
+        status.classList.remove('hidden');
+      }
+    });
+
+    if (supabaseClient) {
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event !== 'PASSWORD_RECOVERY') return;
+        ownerPanel.classList.remove('hidden');
+        if (session?.user?.app_metadata?.role !== 'owner') {
+          ownerDashboard.classList.add('hidden');
+          ownerLoginForm.classList.remove('hidden');
+          ownerLoginError.textContent = 'Password reset is available only for the owner account.';
+          ownerLoginError.classList.remove('hidden');
+          return;
+        }
+        showOwnerPasswordForm('recovery');
+      });
+    }
+
+    document.getElementById('refreshOrdersButton').addEventListener('click', refreshOwnerOrders);
+
+    ownerPanel.addEventListener('click', (event) => {
+      if (event.target === ownerPanel) ownerPanel.classList.add('hidden');
+    });
+
+    ownerLoginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      ownerLoginError.classList.add('hidden');
+      document.getElementById('ownerResetStatus').classList.add('hidden');
+      const submitButton = ownerLoginForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      submitButton.textContent = 'Signing in...';
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+          email: document.getElementById('ownerEmail').value.trim(),
+          password: document.getElementById('ownerPassword').value
+        });
+        if (error) {
+          ownerLoginError.textContent = error.code === 'invalid_credentials'
+            ? 'The email or password does not match an account in this Supabase project. Verify the email under Authentication → Users, then use Forgot password? if needed.'
+            : error.code === 'email_not_confirmed'
+              ? 'Confirm this owner email under Supabase Authentication → Users before signing in.'
+              : error.message;
+          ownerLoginError.classList.remove('hidden');
+          return;
+        }
+        if (data.user.app_metadata?.role !== 'owner') {
+          const { error: signOutError } = await supabaseClient.auth.signOut();
+          if (signOutError) console.error('Unable to sign out a non-owner account:', signOutError.message);
+          ownerLoginError.textContent = 'This account does not have owner access. Check its protected app_metadata role in Supabase.';
+          ownerLoginError.classList.remove('hidden');
+          return;
+        }
+        document.getElementById('ownerPassword').value = '';
+        await updateOwnerView(data.user);
+      } catch (error) {
+        console.error('Unable to sign in owner:', error.message);
+        ownerLoginError.textContent = 'Could not sign in: ' + error.message;
+        ownerLoginError.classList.remove('hidden');
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Sign in';
+      }
+    });
+
+    document.getElementById('changeOwnerPassword').addEventListener('click', () => {
+      showOwnerPasswordForm('change');
+    });
+
+    ownerPasswordForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const password = document.getElementById('ownerNewPassword').value;
+      const confirmation = document.getElementById('ownerConfirmPassword').value;
+      if (password !== confirmation) {
+        setOwnerPasswordStatus('The passwords do not match.', true);
+        return;
+      }
+
+      const submitButton = ownerPasswordForm.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      submitButton.textContent = 'Updating password...';
+      setOwnerPasswordStatus('');
+      try {
+        const { data, error } = await supabaseClient.auth.updateUser({ password });
+        if (error) throw error;
+        if (!data.user) throw new Error('The password was not updated. Please try again.');
+        ownerPasswordForm.reset();
+        ownerPasswordForm.classList.add('hidden');
+        ownerPasswordFlow = null;
+        showToast('Owner password updated.');
+        await updateOwnerView(data.user);
+      } catch (error) {
+        console.error('Unable to update owner password:', error.message);
+        setOwnerPasswordStatus('Could not update password: ' + error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Update password';
+      }
+    });
+
+    document.getElementById('cancelOwnerPasswordUpdate').addEventListener('click', () => {
+      ownerPasswordForm.reset();
+      ownerPasswordForm.classList.add('hidden');
+      const wasRecovery = ownerPasswordFlow === 'recovery';
+      ownerPasswordFlow = null;
+      if (wasRecovery) {
+        ownerLoginForm.classList.remove('hidden');
+        document.getElementById('ownerStatus').textContent = 'Owner sign-in required.';
+      }
+    });
+
+    document.getElementById('ownerSignOut').addEventListener('click', async () => {
+      const { error } = await supabaseClient.auth.signOut();
+      if (error) {
+        console.error('Unable to sign out owner:', error.message);
+        showToast('Could not sign out. Please try again.');
+        return;
+      }
+      ownerProducts = [];
+      updateOwnerView(null);
+      resetProductForm();
+    });
+
+    document.getElementById('cancelEditButton').addEventListener('click', resetProductForm);
+
+    productForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setProductFormMessage('');
+      const image = safeImageUrl(document.getElementById('productImage').value.trim());
+      const price = Number(document.getElementById('productPrice').value);
+      const originalPriceInput = document.getElementById('productOriginalPrice').value;
+      const ratingInput = document.getElementById('productRating').value;
+      if (!image || !Number.isSafeInteger(price) || price <= 0) {
+        setProductFormMessage('Enter a valid http(s) image URL and a positive whole-number price.', true);
+        return;
+      }
+      const product = {
+        name: document.getElementById('productName').value.trim(),
+        category: document.getElementById('productCategory').value,
+        price,
+        original_price: originalPriceInput ? Number(originalPriceInput) : null,
+        rating: ratingInput ? Number(ratingInput) : null,
+        badge: document.getElementById('productBadge').value.trim() || null,
+        image,
+        description: document.getElementById('productDescription').value.trim(),
+        is_published: document.getElementById('productPublished').checked
+      };
+      if (product.original_price !== null && (!Number.isSafeInteger(product.original_price) || product.original_price <= 0)) {
+        setProductFormMessage('Enter a valid whole-number was price.', true);
+        return;
+      }
+      if (product.rating !== null && (!Number.isFinite(product.rating) || product.rating < 0 || product.rating > 5)) {
+        setProductFormMessage('Rating must be between 0 and 5.', true);
+        return;
+      }
+
+      const productId = document.getElementById('productId').value;
+      if (productId) product.id = productId;
+      const { error } = await supabaseClient.from('products').upsert(product);
+      if (error) {
+        console.error('Unable to save product:', error.message);
+        setProductFormMessage('Could not save product: ' + error.message, true);
+        return;
+      }
+
+      resetProductForm();
+      setProductFormMessage('Product saved and shared with customers.');
+      await Promise.all([refreshOwnerProducts(), loadProducts()]);
+    });
+
+    ownerProductList.addEventListener('click', async (event) => {
+      const editButton = event.target.closest('.edit-product');
+      if (editButton) {
+        const product = ownerProducts.find((item) => String(item.id) === editButton.dataset.id);
+        if (!product) return;
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name;
+        document.getElementById('productCategory').value = product.category;
+        document.getElementById('productPrice').value = product.price;
+        document.getElementById('productOriginalPrice').value = product.originalPrice || '';
+        document.getElementById('productRating').value = product.rating || '';
+        document.getElementById('productBadge').value = product.badge;
+        document.getElementById('productImage').value = product.image;
+        document.getElementById('productDescription').value = product.description;
+        document.getElementById('productPublished').checked = product.isPublished;
+        document.getElementById('saveProductButton').textContent = 'Save changes';
+        document.getElementById('cancelEditButton').classList.remove('hidden');
+        setProductFormMessage('');
+        productForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+
+      const deleteButton = event.target.closest('.delete-product');
+      if (deleteButton) {
+        const product = ownerProducts.find((item) => String(item.id) === deleteButton.dataset.id);
+        if (!product || !window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
+        const { error } = await supabaseClient.from('products').delete().eq('id', product.id);
+        if (error) {
+          console.error('Unable to delete product:', error.message);
+          setProductFormMessage('Could not delete product: ' + error.message, true);
+          return;
+        }
+        await Promise.all([refreshOwnerProducts(), loadProducts()]);
+        showToast('Product deleted.');
+      }
+    });
+
+    function setCheckoutMessage(message, isError = false) {
+      const status = document.getElementById('checkoutStatus');
+      status.textContent = message;
+      status.classList.toggle('hidden', !message);
+      status.classList.toggle('text-red-600', isError);
+      status.classList.toggle('text-green-700', !isError);
+    }
+
+    document.getElementById('checkoutForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      if (!state.cart.length) {
+        setCheckoutMessage('Your cart is empty.', true);
+        return;
+      }
+
+      const name = document.getElementById('customerName').value.trim();
+      const phone = document.getElementById('customerPhone').value.trim();
+      const location = document.getElementById('customerLocation').value.trim();
+      const note = document.getElementById('customerNote').value.trim();
+
+      if (!name || !phone || !location) {
+        setCheckoutMessage('Please enter your name, phone number and delivery location.', true);
+        return;
+      }
+
+      if (!supabaseClient) {
+        setCheckoutMessage('Online ordering is unavailable. Please try again when the shop connection is restored.', true);
+        return;
+      }
+
+      const submitButton = document.getElementById('placeOrderButton');
+      if (submitButton.disabled) return;
+      submitButton.disabled = true;
+      submitButton.textContent = 'Placing order...';
+      setCheckoutMessage('');
+      try {
+        const { data, error } = await supabaseClient.rpc('place_order', {
+          p_customer_name: name,
+          p_customer_phone: phone,
+          p_delivery_location: location,
+          p_customer_note: note || null,
+          p_items: state.cart.map((item) => ({ id: item.id, quantity: item.quantity }))
+        });
+        if (error) throw error;
+        if (!data) throw new Error('The order was not saved. Please try again.');
+
+        const orderReference = String(data).slice(0, 8).toUpperCase();
+        state.cart = [];
+        persistCart();
+        updateCartUI();
+        document.getElementById('checkoutForm').reset();
+        setCheckoutMessage(`Order received! Your reference is ${orderReference}. The shop will contact you to confirm delivery and payment.`);
+        showToast('Your order has been placed.');
+      } catch (error) {
+        console.error('Unable to place order:', error.message);
+        setCheckoutMessage('Could not place your order: ' + error.message, true);
+      } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = 'Place order';
+      }
+    });
+
+    renderProducts();
+    updateCartUI();
+    if (cartLoadError) showToast('Some saved cart data was invalid and could not be restored.');
+    loadProducts();
+  </script>
+
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <a href="#home" class="active"><span class="nav-icon">🏠</span><span>Home</span></a>
+    <a href="#shop"><span class="nav-icon">🛍️</span><span>Shop</span></a>
+    <button id="navCartButton" type="button"><span class="nav-icon">🧺</span><span>Cart</span></button>
+    <a href="#contact"><span class="nav-icon">📍</span><span>Contact</span></a>
+  </nav>
+</div>
+</body>
+</html>
