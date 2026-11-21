@@ -5,7 +5,7 @@ The storefront uses Supabase for its shared product catalog and owner sign-in. P
 ## 1. Create the Supabase project
 
 1. Create a Supabase project at [supabase.com](https://supabase.com/).
-2. In **SQL Editor**, run the contents of [`supabase-setup.sql`](./supabase-setup.sql). This creates the product and order tables, publishes the example catalog, and enables row-level security. If you already set up the catalog, run the updated SQL again to add direct ordering.
+2. In **SQL Editor**, run the contents of [`supabase-setup.sql`](./supabase-setup.sql). This creates the product and order tables, publishes the example catalog, enables row-level security, and creates a public `product-images` Storage bucket for photos taken or selected in the app. If you already set up the catalog, run the updated SQL again to add direct ordering and photo storage.
 3. In **Authentication → Providers / Sign In**, turn off **Allow new users to sign up**. In **Authentication → Users**, create the owner's account using the owner's email and a strong password. The owner must be an Auth user; adding the email to a table such as `public.users` does not grant owner access.
 4. In **SQL Editor**, replace `owner@example.com` below with the exact email shown for that Auth user and run:
 

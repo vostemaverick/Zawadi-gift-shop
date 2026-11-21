@@ -463,9 +463,24 @@
           <label class="text-sm font-semibold">Was price (optional)
             <input id="productOriginalPrice" type="number" min="1" step="1" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
           </label>
-          <label class="text-sm font-semibold sm:col-span-2">Image URL
-            <input id="productImage" type="url" maxlength="1000" required placeholder="https://..." class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-          </label>
+          <div class="text-sm font-semibold sm:col-span-2">
+            <span>Product photo</span>
+            <div class="mt-2 flex flex-wrap items-end gap-3">
+              <img id="productImagePreview" src="" alt="Product photo preview" class="hidden w-28 h-28 rounded-xl object-cover border border-slate-200 bg-white">
+              <div class="flex flex-wrap gap-2">
+                <label class="cursor-pointer bg-white border border-slate-300 px-4 py-2.5 rounded-xl font-semibold">
+                  Take photo
+                  <input id="productCameraInput" type="file" accept="image/*" capture="environment" class="hidden">
+                </label>
+                <label class="cursor-pointer bg-white border border-slate-300 px-4 py-2.5 rounded-xl font-semibold">
+                  Choose from phone
+                  <input id="productGalleryInput" type="file" accept="image/*" class="hidden">
+                </label>
+              </div>
+            </div>
+            <input id="productImageUrl" type="hidden">
+            <p class="mt-2 text-xs text-slate-500 font-normal">Choose a JPEG, PNG, or other image up to 10 MB.</p>
+          </div>
           <label class="text-sm font-semibold">Badge
             <input id="productBadge" type="text" maxlength="30" placeholder="New, popular, best seller..." class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
           </label>
@@ -558,6 +573,8 @@
     let ownerOrders = [];
     let deferredInstallPrompt = null;
     let ownerPasswordFlow = null;
+    let selectedProductImage = null;
+    let existingProductImageUrl = '';
 
     function loadSavedCart() {
       try {
@@ -591,10 +608,36 @@
       productForm.reset();
       document.getElementById('productId').value = '';
       document.getElementById('productPublished').checked = true;
+      selectedProductImage = null;
+      existingProductImageUrl = '';
+      document.getElementById('productImageUrl').value = '';
+      const preview = document.getElementById('productImagePreview');
+      preview.src = '';
+      preview.classList.add('hidden');
       document.getElementById('saveProductButton').textContent = 'Add product';
       document.getElementById('cancelEditButton').classList.add('hidden');
       setProductFormMessage('');
     }
+
+    function previewSelectedProductImage(file) {
+      if (!file) return;
+      selectedProductImage = file;
+      existingProductImageUrl = '';
+      const preview = document.getElementById('productImagePreview');
+      preview.src = URL.createObjectURL(file);
+      preview.classList.remove('hidden');
+      setProductFormMessage('');
+    }
+
+    document.getElementById('productCameraInput').addEventListener('change', (event) => {
+      if (event.target.files[0]) document.getElementById('productGalleryInput').value = '';
+      previewSelectedProductImage(event.target.files[0]);
+    });
+
+    document.getElementById('productGalleryInput').addEventListener('change', (event) => {
+      if (event.target.files[0]) document.getElementById('productCameraInput').value = '';
+      previewSelectedProductImage(event.target.files[0]);
+    });
 
     function renderOwnerProducts() {
       ownerProductList.innerHTML = ownerProducts.length
@@ -1201,12 +1244,52 @@
     productForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       setProductFormMessage('');
-      const image = safeImageUrl(document.getElementById('productImage').value.trim());
+      let image = existingProductImageUrl || safeImageUrl(document.getElementById('productImageUrl').value.trim());
       const price = Number(document.getElementById('productPrice').value);
       const originalPriceInput = document.getElementById('productOriginalPrice').value;
       const ratingInput = document.getElementById('productRating').value;
-      if (!image || !Number.isSafeInteger(price) || price <= 0) {
-        setProductFormMessage('Enter a valid http(s) image URL and a positive whole-number price.', true);
+      if (!Number.isSafeInteger(price) || price <= 0) {
+        setProductFormMessage('Enter a positive whole-number price.', true);
+        return;
+      }
+      if (selectedProductImage) {
+        if (!selectedProductImage.type.startsWith('image/')) {
+          setProductFormMessage('Choose an image file.', true);
+          return;
+        }
+        if (selectedProductImage.size > 10 * 1024 * 1024) {
+          setProductFormMessage('The photo must be 10 MB or smaller.', true);
+          return;
+        }
+        if (!supabaseConfigured || !supabaseClient) {
+          setProductFormMessage('Supabase Storage is not configured.', true);
+          return;
+        }
+        setProductFormMessage('Uploading photo...');
+        const saveButton = document.getElementById('saveProductButton');
+        saveButton.disabled = true;
+        const extension = (selectedProductImage.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+        const uniqueId = window.crypto && typeof window.crypto.randomUUID === 'function'
+          ? window.crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const fileName = `products/${uniqueId}.${extension}`;
+        const { error: uploadError } = await supabaseClient.storage
+          .from('product-images')
+          .upload(fileName, selectedProductImage, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: selectedProductImage.type
+          });
+        saveButton.disabled = false;
+        if (uploadError) {
+          console.error('Unable to upload product photo:', uploadError.message);
+          setProductFormMessage('Could not upload photo: ' + uploadError.message, true);
+          return;
+        }
+        image = supabaseClient.storage.from('product-images').getPublicUrl(fileName).data.publicUrl;
+      }
+      if (!safeImageUrl(image)) {
+        setProductFormMessage('Choose a product photo first.', true);
         return;
       }
       const product = {
@@ -1255,7 +1338,12 @@
         document.getElementById('productOriginalPrice').value = product.originalPrice || '';
         document.getElementById('productRating').value = product.rating || '';
         document.getElementById('productBadge').value = product.badge;
-        document.getElementById('productImage').value = product.image;
+        existingProductImageUrl = product.image;
+        document.getElementById('productImageUrl').value = product.image;
+        selectedProductImage = null;
+        const preview = document.getElementById('productImagePreview');
+        preview.src = safeImageUrl(product.image) || '';
+        preview.classList.toggle('hidden', !safeImageUrl(product.image));
         document.getElementById('productDescription').value = product.description;
         document.getElementById('productPublished').checked = product.isPublished;
         document.getElementById('saveProductButton').textContent = 'Save changes';

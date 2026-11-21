@@ -1,3 +1,44 @@
+insert into storage.buckets (id, name, public)
+values ('product-images', 'product-images', true)
+on conflict (id) do update set public = true;
+
+drop policy if exists "Anyone can view product photos" on storage.objects;
+create policy "Anyone can view product photos"
+  on storage.objects for select
+  to anon, authenticated
+  using (bucket_id = 'product-images');
+
+drop policy if exists "Owner can upload product photos" on storage.objects;
+create policy "Owner can upload product photos"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );
+
+drop policy if exists "Owner can update product photos" on storage.objects;
+create policy "Owner can update product photos"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  )
+  with check (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );
+
+drop policy if exists "Owner can delete product photos" on storage.objects;
+create policy "Owner can delete product photos"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );
+
 create table if not exists public.products (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 100),
