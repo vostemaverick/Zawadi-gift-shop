@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zawadi-gift-shop-v4';
+const CACHE_NAME = 'zawadi-gift-shop-v5';
 const ASSETS = ['./', './index.html', './manifest.json', './icon.svg'];
 
 self.addEventListener('install', (event) => {
@@ -12,6 +12,69 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => Promise.all(
       keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
     )).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let payload = {
+    title: 'Zawadi Gift Shop · Order update',
+    body: 'Your order status has been updated.',
+    tag: 'zawadi-order-update',
+    url: './#orders'
+  };
+
+  if (event.data) {
+    try {
+      const parsed = event.data.json();
+      if (parsed && typeof parsed === 'object') {
+        payload = {
+          title: typeof parsed.title === 'string' && parsed.title ? parsed.title : payload.title,
+          body: typeof parsed.body === 'string' && parsed.body ? parsed.body : payload.body,
+          tag: typeof parsed.tag === 'string' && parsed.tag ? parsed.tag : payload.tag,
+          url: typeof parsed.url === 'string' && parsed.url ? parsed.url : payload.url,
+          orderId: parsed.orderId || null,
+          status: parsed.status || null
+        };
+      }
+    } catch {
+      const text = event.data.text();
+      if (text) payload.body = text;
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: './icon.svg',
+      badge: './icon.svg',
+      tag: payload.tag,
+      renotify: true,
+      data: {
+        url: payload.url,
+        orderId: payload.orderId,
+        status: payload.status
+      }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || './#orders', self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.navigate?.(targetUrl);
+          return client.focus();
+        }
+      }
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+      return undefined;
+    })
   );
 });
 

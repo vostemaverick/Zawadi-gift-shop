@@ -54,3 +54,11 @@ In Android Studio, select an emulator or connected Android device and press **Ru
 ## 5. Receive orders
 
 Customers can search and filter the catalog, manage a cart, and place orders directly in the app. Orders are saved in Supabase; the owner can sign in and view them under **Incoming orders**. The app does not process M-Pesa or card payments, so contact the customer to confirm payment and delivery.
+
+## 6. Push notifications for order updates
+
+Customers can opt in to push notifications on their device to receive order status updates (`pending`, `confirmed`, `completed`, `cancelled`):
+
+1. **Database support**: Re-run [`supabase-setup.sql`](./supabase-setup.sql) in the Supabase **SQL Editor** so the owner can update order statuses (`orders` update policy), devices can register push subscriptions (`push_subscriptions`, `register_push_subscription`, `get_order_status`), and customers can look up past orders by phone (`get_order_history_by_phone`).
+2. **Web Push (Browser & PWA)**: The Node server reads `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, and `VAPID_SUBJECT` from environment variables (see `.env.example`). Generate a VAPID keypair with `npx web-push generate-vapid-keys` and set those variables before deploying so browser push subscriptions persist across server restarts.
+3. **Android (Capacitor)**: The storefront also integrates `@capacitor/push-notifications`. To enable native Android push delivery via Firebase Cloud Messaging (FCM), add your Firebase `google-services.json` file to `android/app/google-services.json` and run `npm run cap:sync`.
