@@ -1091,6 +1091,7 @@
     document.getElementById('forgotOwnerPassword').addEventListener('click', async () => {
       const email = document.getElementById('ownerEmail').value.trim();
       const status = document.getElementById('ownerResetStatus');
+      const resetButton = document.getElementById('forgotOwnerPassword');
       status.classList.remove('text-red-600', 'text-green-700');
       status.classList.add('text-red-600');
       status.textContent = '';
@@ -1102,10 +1103,10 @@
       }
 
       try {
-        const isCapacitorOrigin = window.location.protocol === 'capacitor:'
-          || (window.location.hostname === 'localhost' && !window.location.port);
-        const resetOptions = isCapacitorOrigin
-          ? undefined
+        const isNativeApp = window.location.protocol === 'capacitor:'
+          || window.location.protocol === 'ionic:';
+        const resetOptions = isNativeApp
+          ? {}
           : { redirectTo: new URL(window.location.pathname, window.location.origin).toString() };
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, resetOptions);
         if (error) throw error;
@@ -1115,8 +1116,29 @@
         status.classList.remove('hidden');
       } catch (error) {
         console.error('Unable to request owner password reset:', error.message);
-        status.textContent = 'Could not send a reset email: ' + error.message;
+        const rateLimited = error.status === 429
+          || error.code === 'over_email_send_rate_limit'
+          || /rate limit|too many/i.test(error.message || '');
+        status.textContent = rateLimited
+          ? 'Password reset email rate limit exceeded. Wait about a minute, then try again. If this repeats, configure a custom SMTP provider in Supabase → Project Settings → Auth → SMTP.'
+          : 'Could not send a reset email: ' + error.message;
         status.classList.remove('hidden');
+        if (rateLimited) {
+          resetButton.disabled = true;
+          let secondsRemaining = 60;
+          resetButton.textContent = 'Try again in 60s';
+          const timer = window.setInterval(() => {
+            secondsRemaining -= 1;
+            resetButton.textContent = secondsRemaining > 0
+              ? `Try again in ${secondsRemaining}s`
+              : 'Forgot password?';
+            if (secondsRemaining <= 0) {
+              window.clearInterval(timer);
+              resetButton.disabled = false;
+              resetButton.textContent = 'Forgot password?';
+            }
+          }, 1000);
+        }
       }
     });
 
