@@ -55,21 +55,99 @@ function formatOrderReference(orderId) {
   return String(orderId || '').slice(0, 8).toUpperCase() || 'ORDER';
 }
 
-function buildOrderNotificationPayload({ orderId, status, orderReference, customerName }) {
+function sanitizeTextField(value, maxLength = 120) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\s+/g, ' ').trim().slice(0, maxLength);
+}
+
+function buildCustomerUpdateMessage({
+  orderId,
+  status,
+  orderReference,
+  customerName,
+  expectedDelivery = '',
+  customMessage = '',
+  paymentConfirmed = false,
+  paymentReference = ''
+}) {
+  const normalizedStatus = Object.prototype.hasOwnProperty.call(ORDER_STATUS_META, status)
+    ? status
+    : 'pending';
+  const ref = orderReference || formatOrderReference(orderId);
+  const firstName = customerName ? String(customerName).trim().split(/\s+/)[0] : '';
+  const greeting = firstName ? `${firstName}: ` : '';
+  const eta = sanitizeTextField(expectedDelivery, 120);
+  const note = sanitizeTextField(customMessage, 280);
+  const payRef = sanitizeTextField(paymentReference, 80);
+
+  if (normalizedStatus === 'confirmed') {
+    const parts = [`${greeting}Good news! Order ${ref} is confirmed and being prepared.`];
+    if (eta) {
+      parts.push(`Expected delivery: ${eta}.`);
+    }
+    if (note) {
+      parts.push(note);
+    }
+    return parts.join(' ');
+  }
+
+  if (normalizedStatus === 'completed') {
+    if (paymentConfirmed) {
+      const refText = payRef ? ` (${payRef})` : '';
+      return `${greeting}Payment confirmed${refText}! Order ${ref} is now completed. Thank you for gifting with Zawadi!`;
+    }
+    return `${greeting}${ORDER_STATUS_META.completed.body(ref)}`;
+  }
+
+  const base = `${greeting}${ORDER_STATUS_META[normalizedStatus].body(ref)}`;
+  return note ? `${base} ${note}` : base;
+}
+
+function buildOrderNotificationPayload({
+  orderId,
+  status,
+  orderReference,
+  customerName,
+  expectedDelivery = '',
+  customMessage = '',
+  paymentConfirmed = false,
+  paymentReference = ''
+}) {
   const normalizedStatus = Object.prototype.hasOwnProperty.call(ORDER_STATUS_META, status)
     ? status
     : 'pending';
   const ref = orderReference || formatOrderReference(orderId);
   const meta = ORDER_STATUS_META[normalizedStatus];
-  const greeting = customerName ? `${String(customerName).trim().split(/\s+/)[0]}: ` : '';
+  const eta = sanitizeTextField(expectedDelivery, 120);
+  const note = sanitizeTextField(customMessage, 280);
+  const payRef = sanitizeTextField(paymentReference, 80);
+
+  const title = normalizedStatus === 'completed' && paymentConfirmed
+    ? 'Zawadi Gift Shop · Payment confirmed & order completed'
+    : `Zawadi Gift Shop · ${meta.title}`;
+
+  const body = buildCustomerUpdateMessage({
+    orderId,
+    status: normalizedStatus,
+    orderReference: ref,
+    customerName,
+    expectedDelivery: eta,
+    customMessage: note,
+    paymentConfirmed,
+    paymentReference: payRef
+  });
 
   return {
-    title: `Zawadi Gift Shop · ${meta.title}`,
-    body: `${greeting}${meta.body(ref)}`,
+    title,
+    body,
     tag: `zawadi-order-${orderId || ref}`,
     orderId: orderId || null,
     orderReference: ref,
     status: normalizedStatus,
+    expectedDelivery: eta || null,
+    customMessage: note || null,
+    paymentConfirmed: Boolean(paymentConfirmed),
+    paymentReference: payRef || null,
     url: './#orders'
   };
 }
@@ -246,13 +324,21 @@ function createPushManager({
       if (user?.app_metadata?.role !== 'owner') {
         return { ok: false, status: 403, error: 'Owner role is required to send order status push notifications.' };
       }
-      return { ok: true, user };
+      return { ok: true, user, token };
     } catch {
       return { ok: false, status: 502, error: 'Unable to verify owner credentials.' };
     }
   }
 
-  async function notifyOrderStatus({ orderId, status, customerName }) {
+  async function notifyOrderStatus({
+    orderId,
+    status,
+    customerName,
+    expectedDelivery = '',
+    customMessage = '',
+    paymentConfirmed = false,
+    paymentReference = ''
+  }) {
     if (!isValidUuid(orderId)) {
       return { ok: false, status: 400, error: 'A valid orderId UUID is required.' };
     }
@@ -261,19 +347,33 @@ function createPushManager({
     }
 
     const normalizedOrderId = orderId.trim().toLowerCase();
+    const existing = orderStatuses.get(normalizedOrderId);
+    const eta = sanitizeTextField(expectedDelivery, 120) || existing?.expectedDelivery || '';
+    const note = sanitizeTextField(customMessage, 280);
+    const payConfirmed = Boolean(paymentConfirmed) || existing?.paymentStatus === 'paid';
+    const payRef = sanitizeTextField(paymentReference, 80) || existing?.paymentReference || '';
+
+    const notificationPayload = buildOrderNotificationPayload({
+      orderId: normalizedOrderId,
+      status,
+      orderReference: formatOrderReference(normalizedOrderId),
+      customerName,
+      expectedDelivery: eta,
+      customMessage: note,
+      paymentConfirmed: payConfirmed,
+      paymentReference: payRef
+    });
+
     orderStatuses.set(normalizedOrderId, {
       id: normalizedOrderId,
       status,
+      expectedDelivery: eta || null,
+      ownerMessage: note || existing?.ownerMessage || null,
+      paymentStatus: payConfirmed ? 'paid' : (existing?.paymentStatus || 'pending'),
+      paymentReference: payRef || null,
       updatedAt: new Date().toISOString()
     });
-    const payload = JSON.stringify(
-      buildOrderNotificationPayload({
-        orderId: normalizedOrderId,
-        status,
-        orderReference: formatOrderReference(normalizedOrderId),
-        customerName
-      })
-    );
+    const payload = JSON.stringify(notificationPayload);
 
     const targets = [];
     for (const entry of subscriptions.values()) {
@@ -305,6 +405,11 @@ function createPushManager({
       ok: true,
       orderId: normalizedOrderId,
       status,
+      expectedDelivery: eta || null,
+      ownerMessage: note || null,
+      paymentStatus: payConfirmed ? 'paid' : (existing?.paymentStatus || 'pending'),
+      paymentReference: payRef || null,
+      customerMessage: notificationPayload.body,
       matchedSubscribers: targets.length,
       sent,
       failed,
@@ -340,6 +445,8 @@ module.exports = {
   isValidUuid,
   isValidPushSubscription,
   formatOrderReference,
+  sanitizeTextField,
+  buildCustomerUpdateMessage,
   buildOrderNotificationPayload,
   normalizeVapidSubject,
   createPushManager

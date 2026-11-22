@@ -88,8 +88,21 @@ create table if not exists public.orders (
   customer_note text check (customer_note is null or char_length(customer_note) <= 1000),
   total integer not null check (total > 0),
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'completed', 'cancelled')),
+  expected_delivery text check (expected_delivery is null or char_length(expected_delivery) <= 120),
+  owner_message text check (owner_message is null or char_length(owner_message) <= 280),
+  payment_status text not null default 'pending' check (payment_status in ('pending', 'paid')),
+  payment_reference text check (payment_reference is null or char_length(payment_reference) <= 80),
+  confirmed_at timestamptz,
+  payment_confirmed_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists expected_delivery text check (expected_delivery is null or char_length(expected_delivery) <= 120);
+alter table public.orders add column if not exists owner_message text check (owner_message is null or char_length(owner_message) <= 280);
+alter table public.orders add column if not exists payment_status text not null default 'pending';
+alter table public.orders add column if not exists payment_reference text check (payment_reference is null or char_length(payment_reference) <= 80);
+alter table public.orders add column if not exists confirmed_at timestamptz;
+alter table public.orders add column if not exists payment_confirmed_at timestamptz;
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
@@ -104,7 +117,7 @@ alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 
 grant select on public.orders, public.order_items to authenticated;
-grant update (status) on public.orders to authenticated;
+grant update (status, expected_delivery, owner_message, payment_status, payment_reference, confirmed_at, payment_confirmed_at) on public.orders to authenticated;
 
 drop policy if exists "Owner can read orders" on public.orders;
 create policy "Owner can read orders"
