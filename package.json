@@ -5,6 +5,9 @@
   "main": "service-worker.js",
   "private": true,
   "scripts": {
+    "dev": "node scripts/serve.js",
+    "build": "node scripts/prepare-web.js",
+    "lint": "node --check scripts/serve.js && node --check scripts/prepare-web.js",
     "start": "node scripts/serve.js",
     "cap:sync": "node scripts/prepare-web.js && npx cap sync android",
     "android": "npx cap open android"

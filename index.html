@@ -101,10 +101,15 @@
       transform: translateY(12px);
       opacity: 0;
       transition: all 0.25s ease;
+      z-index: 60;
     }
     .toast.show {
       opacity: 1;
       transform: translateY(0);
+    }
+
+    #ownerPanel {
+      z-index: 70;
     }
 
     .mobile-nav {

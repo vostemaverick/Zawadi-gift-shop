@@ -16,76 +16,84 @@ const mimeTypes = new Map([
   ['.webp', 'image/webp']
 ]);
 
-const server = http.createServer((request, response) => {
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    response.writeHead(405, { Allow: 'GET, HEAD' });
-    response.end();
-    return;
-  }
-
-  let filePath;
-  try {
-    const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    const requestPath = pathname.endsWith('/') ? `${pathname}index.html` : pathname;
-    filePath = path.resolve(projectRoot, `.${requestPath}`);
-  } catch (error) {
-    response.writeHead(400);
-    response.end('Invalid request path');
-    return;
-  }
-
-  const relativePath = path.relative(projectRoot, filePath);
-  if (relativePath.startsWith(`..${path.sep}`) || relativePath === '..' || path.isAbsolute(relativePath)) {
-    response.writeHead(403);
-    response.end('Forbidden');
-    return;
-  }
-
-  fs.stat(filePath, (statError, stats) => {
-    if (statError && !['ENOENT', 'ENOTDIR'].includes(statError.code)) {
-      console.error(`Unable to inspect ${filePath}:`, statError);
-      response.writeHead(500);
-      response.end('Unable to inspect file');
-      return;
-    }
-
-    if (statError || !stats.isFile()) {
-      response.writeHead(404);
-      response.end('Not found');
-      return;
-    }
-
-    response.writeHead(200, {
-      'Cache-Control': 'no-cache',
-      'Content-Length': stats.size,
-      'Content-Type': mimeTypes.get(path.extname(filePath).toLowerCase()) || 'application/octet-stream',
-      'X-Content-Type-Options': 'nosniff'
-    });
-
-    if (request.method === 'HEAD') {
+function createAppServer() {
+  return http.createServer((request, response) => {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      response.writeHead(405, { Allow: 'GET, HEAD' });
       response.end();
       return;
     }
 
-    const stream = fs.createReadStream(filePath);
-    stream.on('error', (error) => {
-      console.error(`Unable to serve ${filePath}:`, error);
-      response.destroy(error);
-    });
-    stream.pipe(response);
-  });
-});
+    let filePath;
+    try {
+      const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+      const requestPath = pathname.endsWith('/') ? `${pathname}index.html` : pathname;
+      filePath = path.resolve(projectRoot, `.${requestPath}`);
+    } catch (error) {
+      response.writeHead(400);
+      response.end('Invalid request path');
+      return;
+    }
 
-const port = Number(process.env.PORT || 8000);
-if (!Number.isInteger(port) || port < 1 || port > 65535) {
-  throw new Error('PORT must be an integer between 1 and 65535.');
+    const relativePath = path.relative(projectRoot, filePath);
+    if (relativePath.startsWith(`..${path.sep}`) || relativePath === '..' || path.isAbsolute(relativePath)) {
+      response.writeHead(403);
+      response.end('Forbidden');
+      return;
+    }
+
+    fs.stat(filePath, (statError, stats) => {
+      if (statError && !['ENOENT', 'ENOTDIR'].includes(statError.code)) {
+        console.error(`Unable to inspect ${filePath}:`, statError);
+        response.writeHead(500);
+        response.end('Unable to inspect file');
+        return;
+      }
+
+      if (statError || !stats.isFile()) {
+        response.writeHead(404);
+        response.end('Not found');
+        return;
+      }
+
+      response.writeHead(200, {
+        'Cache-Control': 'no-cache',
+        'Content-Length': stats.size,
+        'Content-Type': mimeTypes.get(path.extname(filePath).toLowerCase()) || 'application/octet-stream',
+        'X-Content-Type-Options': 'nosniff'
+      });
+
+      if (request.method === 'HEAD') {
+        response.end();
+        return;
+      }
+
+      const stream = fs.createReadStream(filePath);
+      stream.on('error', (error) => {
+        console.error(`Unable to serve ${filePath}:`, error);
+        response.destroy(error);
+      });
+      stream.pipe(response);
+    });
+  });
 }
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`Serving Zawadi Gift Shop at http://127.0.0.1:${port}`);
-});
+if (require.main === module) {
+  const port = Number(process.env.PORT || 3000);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('PORT must be an integer between 1 and 65535.');
+  }
 
-server.on('error', (error) => {
-  console.error('Unable to start the storefront server:', error);
-  process.exitCode = 1;
-});
+  const host = process.env.HOST || '0.0.0.0';
+  const server = createAppServer();
+  server.listen(port, host, () => {
+    console.log(`Serving Zawadi Gift Shop at http://${host}:${port}`);
+  });
+
+  server.on('error', (error) => {
+    console.error('Unable to start the storefront server:', error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { createAppServer };
