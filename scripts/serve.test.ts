@@ -242,3 +242,62 @@ test('records orders and serves phone-based order history with validation and st
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('enforces owner auth and validates device image uploads on /api/products/upload-image', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { createPushManager } = require('./push.js');
+  const { createImageUploadManager } = require('./uploads.js');
+
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'zawadi-serve-upload-'));
+  const mockPushManager = createPushManager({
+    webPushClient: {
+      generateVAPIDKeys: () => ({ publicKey: 'TEST_PUBLIC_KEY', privateKey: 'TEST_PRIVATE_KEY' }),
+      setVapidDetails: () => {},
+      sendNotification: async () => {}
+    },
+    env: {},
+    fetchImpl: async (_url, options) => {
+      if (options.headers.Authorization === 'Bearer valid-owner') {
+        return { ok: true, json: async () => ({ id: 'owner-1', app_metadata: { role: 'owner' } }) };
+      }
+      return { ok: false, status: 401, json: async () => ({}) };
+    }
+  });
+
+  const server = createAppServer({
+    pushManager: mockPushManager,
+    imageUploadManager: createImageUploadManager({ uploadDir: tmpDir })
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const pngDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  try {
+    const unauthRes = await fetch(`${baseUrl}/api/products/upload-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl: pngDataUrl })
+    });
+    assert.equal(unauthRes.status, 401);
+
+    const uploadRes = await fetch(`${baseUrl}/api/products/upload-image`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer valid-owner'
+      },
+      body: JSON.stringify({ dataUrl: pngDataUrl })
+    });
+    assert.equal(uploadRes.status, 200);
+    const uploadJson = await uploadRes.json();
+    assert.equal(uploadJson.ok, true);
+    assert.match(uploadJson.url, /^\/uploads\/products\/[0-9a-f-]+\.png$/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await fs.promises.rm(tmpDir, { recursive: true, force: true });
+  }
+});

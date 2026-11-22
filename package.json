@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "node scripts/serve.js",
     "build": "node scripts/prepare-web.js",
-    "lint": "node --check scripts/serve.js && node --check scripts/push.js && node --check scripts/orders.js && node --check scripts/prepare-web.js",
+    "lint": "node --check scripts/serve.js && node --check scripts/push.js && node --check scripts/orders.js && node --check scripts/uploads.js && node --check scripts/prepare-web.js",
     "start": "node scripts/serve.js",
     "cap:sync": "node scripts/prepare-web.js && npx cap sync android",
     "android": "npx cap open android"

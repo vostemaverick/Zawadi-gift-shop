@@ -3,9 +3,11 @@ const http = require('node:http');
 const path = require('node:path');
 const { createPushManager } = require('./push');
 const { createOrderHistoryManager } = require('./orders');
+const { createImageUploadManager } = require('./uploads');
 
 const projectRoot = path.resolve(__dirname, '..');
 const MAX_JSON_BODY_BYTES = 16 * 1024;
+const MAX_UPLOAD_BODY_BYTES = 3 * 1024 * 1024;
 const mimeTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.html', 'text/html; charset=utf-8'],
@@ -30,7 +32,7 @@ function sendJson(response, statusCode, payload) {
   response.end(body);
 }
 
-function readJsonBody(request) {
+function readJsonBody(request, maxBytes = MAX_JSON_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     let totalBytes = 0;
     const chunks = [];
@@ -39,7 +41,7 @@ function readJsonBody(request) {
     request.on('data', (chunk) => {
       if (aborted) return;
       totalBytes += chunk.length;
-      if (totalBytes > MAX_JSON_BODY_BYTES) {
+      if (totalBytes > maxBytes) {
         aborted = true;
         reject(Object.assign(new Error('Request body is too large.'), { statusCode: 413 }));
         request.destroy();
@@ -72,7 +74,7 @@ function readJsonBody(request) {
   });
 }
 
-async function handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, checkHistoryRateLimit) {
+async function handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, imageUploadManager, checkHistoryRateLimit) {
   if (pathname === '/api/push/public-key') {
     if (request.method !== 'GET') {
       response.writeHead(405, { Allow: 'GET' });
@@ -250,12 +252,38 @@ async function handleApiRoute(request, response, pathname, pushManager, orderHis
     return true;
   }
 
+  if (pathname === '/api/products/upload-image') {
+    if (request.method !== 'POST') {
+      response.writeHead(405, { Allow: 'POST' });
+      response.end();
+      return true;
+    }
+    const authResult = await pushManager.verifyOwnerToken(request.headers.authorization || '');
+    if (!authResult.ok) {
+      sendJson(response, authResult.status || 401, { error: authResult.error });
+      return true;
+    }
+    try {
+      const body = await readJsonBody(request, MAX_UPLOAD_BODY_BYTES);
+      const result = await imageUploadManager.saveImage({ dataUrl: body.dataUrl });
+      if (!result.ok) {
+        sendJson(response, result.status || 400, { error: result.error });
+        return true;
+      }
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, error.statusCode || 400, { error: error.message });
+    }
+    return true;
+  }
+
   return false;
 }
 
 function createAppServer({
   pushManager = createPushManager(),
-  orderHistoryManager = createOrderHistoryManager({ pushManager })
+  orderHistoryManager = createOrderHistoryManager({ pushManager }),
+  imageUploadManager = createImageUploadManager()
 } = {}) {
   const historyRateMap = new Map();
   const checkHistoryRateLimit = (ip) => {
@@ -282,7 +310,7 @@ function createAppServer({
     }
 
     if (pathname.startsWith('/api/')) {
-      const handled = await handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, checkHistoryRateLimit);
+      const handled = await handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, imageUploadManager, checkHistoryRateLimit);
       if (!handled) {
         sendJson(response, 404, { error: 'Not found' });
       }

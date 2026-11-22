@@ -392,3 +392,53 @@ $$;
 
 revoke all on function public.get_order_history_by_phone(text) from public;
 grant execute on function public.get_order_history_by_phone(text) to anon, authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'product-images',
+  'product-images',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Anyone can view product images" on storage.objects;
+create policy "Anyone can view product images"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'product-images');
+
+drop policy if exists "Owner can upload product images" on storage.objects;
+create policy "Owner can upload product images"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );
+
+drop policy if exists "Owner can update product images" on storage.objects;
+create policy "Owner can update product images"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  )
+  with check (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );
+
+drop policy if exists "Owner can delete product images" on storage.objects;
+create policy "Owner can delete product images"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );

@@ -474,10 +474,14 @@
           <input id="ownerEmail" type="email" autocomplete="username" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-pink-400 focus:outline-none">
         </label>
         <label class="block text-sm font-semibold">Password
-          <input id="ownerPassword" type="password" autocomplete="current-password" required class="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 focus:border-pink-400 focus:outline-none">
+          <div class="relative mt-1">
+            <input id="ownerPassword" type="password" autocomplete="current-password" required class="w-full rounded-xl border border-slate-200 px-3 py-2.5 pr-16 focus:border-pink-400 focus:outline-none">
+            <button id="toggleOwnerPassword" type="button" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-pink-shop">Show</button>
+          </div>
         </label>
         <button type="submit" class="w-full bg-gray-900 text-white rounded-xl py-3 font-bold hover:bg-pink-500">Sign in</button>
         <button id="forgotOwnerPassword" type="button" class="w-full text-sm font-semibold text-pink-shop">Forgot password?</button>
+        <p class="text-xs text-slate-500 text-center">Connected Supabase project: <code class="font-semibold text-slate-700">rldomswxlgcahqwqfjrh</code></p>
         <p id="ownerResetStatus" class="hidden text-sm" role="status" aria-live="polite"></p>
         <p id="ownerLoginError" class="hidden text-sm text-red-600" role="alert"></p>
       </form>
@@ -522,9 +526,21 @@
           <label class="text-sm font-semibold">Was price (optional)
             <input id="productOriginalPrice" type="number" min="1" step="1" class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
           </label>
-          <label class="text-sm font-semibold sm:col-span-2">Image URL
-            <input id="productImage" type="url" maxlength="1000" required placeholder="https://..." class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
-          </label>
+          <div class="sm:col-span-2">
+            <span class="block text-sm font-semibold">Product photo</span>
+            <input id="productImage" type="hidden">
+            <input id="productPhotoInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden">
+            <div class="mt-1.5 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white p-3">
+              <img id="productPhotoPreview" alt="Product photo preview" class="hidden w-16 h-16 rounded-xl object-cover border border-slate-200 bg-slate-100 shrink-0">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <button id="chooseProductPhotoButton" type="button" class="bg-gray-900 hover:bg-pink-500 text-white px-3.5 py-2 rounded-lg text-xs font-bold transition">Choose photo from device</button>
+                  <button id="clearProductPhotoButton" type="button" class="hidden border border-slate-300 px-3 py-2 rounded-lg text-xs font-semibold text-slate-700">Remove</button>
+                </div>
+                <p id="productPhotoName" class="text-xs text-slate-500 mt-1.5 truncate">Select an image from your phone or computer (JPEG, PNG, WebP).</p>
+              </div>
+            </div>
+          </div>
           <label class="text-sm font-semibold">Badge
             <input id="productBadge" type="text" maxlength="30" placeholder="New, popular, best seller..." class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5">
           </label>
@@ -694,9 +710,36 @@
       element.classList.toggle('text-green-700', !isError);
     }
 
+    const productPhotoInput = document.getElementById('productPhotoInput');
+    const chooseProductPhotoButton = document.getElementById('chooseProductPhotoButton');
+    const clearProductPhotoButton = document.getElementById('clearProductPhotoButton');
+    const productPhotoPreview = document.getElementById('productPhotoPreview');
+    const productPhotoName = document.getElementById('productPhotoName');
+    let productPhotoPreviewObjectUrl = '';
+
+    function setProductPhotoPreview(src, label = '') {
+      if (productPhotoPreviewObjectUrl && productPhotoPreviewObjectUrl !== src) {
+        URL.revokeObjectURL(productPhotoPreviewObjectUrl);
+        productPhotoPreviewObjectUrl = '';
+      }
+      if (productPhotoPreview) {
+        productPhotoPreview.src = src || '';
+        productPhotoPreview.classList.toggle('hidden', !src);
+      }
+      if (clearProductPhotoButton) {
+        clearProductPhotoButton.classList.toggle('hidden', !src);
+      }
+      if (productPhotoName) {
+        productPhotoName.textContent = label || 'Select an image from your phone or computer (JPEG, PNG, WebP).';
+      }
+    }
+
     function resetProductForm() {
       productForm.reset();
       document.getElementById('productId').value = '';
+      document.getElementById('productImage').value = '';
+      if (productPhotoInput) productPhotoInput.value = '';
+      setProductPhotoPreview('', '');
       document.getElementById('productPublished').checked = true;
       document.getElementById('saveProductButton').textContent = 'Add product';
       document.getElementById('cancelEditButton').classList.add('hidden');
@@ -842,9 +885,19 @@
     }
 
     function safeImageUrl(value) {
+      if (typeof value !== 'string') return '';
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      if (trimmed.startsWith('/uploads/products/') && !trimmed.includes('..')) {
+        return trimmed;
+      }
       try {
-        const url = new URL(value);
-        return url.protocol === 'https:' ? url.href : '';
+        const url = new URL(trimmed);
+        if (url.protocol === 'https:') return url.href;
+        if (url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1')) {
+          return url.href;
+        }
+        return '';
       } catch {
         return '';
       }
@@ -1254,6 +1307,17 @@
       if (event.target === ownerPanel) ownerPanel.classList.add('hidden');
     });
 
+    const toggleOwnerPasswordBtn = document.getElementById('toggleOwnerPassword');
+    if (toggleOwnerPasswordBtn) {
+      toggleOwnerPasswordBtn.addEventListener('click', () => {
+        const passwordInput = document.getElementById('ownerPassword');
+        if (!passwordInput) return;
+        const show = passwordInput.type === 'password';
+        passwordInput.type = show ? 'text' : 'password';
+        toggleOwnerPasswordBtn.textContent = show ? 'Hide' : 'Show';
+      });
+    }
+
     ownerLoginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       ownerLoginError.classList.add('hidden');
@@ -1354,49 +1418,221 @@
 
     document.getElementById('cancelEditButton').addEventListener('click', resetProductForm);
 
+    const ALLOWED_UPLOAD_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+
+    function blobToDataUrl(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Could not read the selected photo.'));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function compressProductImage(file) {
+      if (!file || !ALLOWED_UPLOAD_TYPES.has(file.type)) {
+        throw new Error('Choose a valid JPEG, PNG, WebP, or GIF image file.');
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        throw new Error('Selected photo is larger than 15 MB. Please choose a smaller image.');
+      }
+
+      if (file.type === 'image/gif' && file.size <= 1.5 * 1024 * 1024) {
+        return {
+          blob: file,
+          dataUrl: await blobToDataUrl(file),
+          ext: '.gif',
+          mimeType: 'image/gif'
+        };
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const el = new Image();
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error('Could not open that photo file.'));
+          el.src = objectUrl;
+        });
+
+        const maxDim = 1000;
+        const scale = Math.min(1, maxDim / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+        const width = Math.max(1, Math.round((img.naturalWidth || maxDim) * scale));
+        const height = Math.max(1, Math.round((img.naturalHeight || maxDim) * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Image processing is unavailable in this browser.');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const targetMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const blob = await new Promise((resolve) => {
+          canvas.toBlob(
+            (out) => resolve(out),
+            targetMime,
+            targetMime === 'image/jpeg' ? 0.84 : undefined
+          );
+        });
+        if (!blob) throw new Error('Could not process the selected photo.');
+
+        const finalBlob = blob.size > 1.8 * 1024 * 1024 && targetMime === 'image/png'
+          ? await new Promise((resolve) => canvas.toBlob((out) => resolve(out), 'image/jpeg', 0.82))
+          : blob;
+        if (!finalBlob) throw new Error('Could not compress the selected photo.');
+
+        const finalMime = finalBlob.type || targetMime;
+        const ext = finalMime === 'image/png' ? '.png' : finalMime === 'image/webp' ? '.webp' : '.jpg';
+        return {
+          blob: finalBlob,
+          dataUrl: await blobToDataUrl(finalBlob),
+          ext,
+          mimeType: finalMime
+        };
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    }
+
+    async function uploadOwnerProductPhoto(file) {
+      const prepared = await compressProductImage(file);
+      const uniqueName = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? `${crypto.randomUUID()}${prepared.ext}`
+        : `product-${Date.now()}-${Math.random().toString(16).slice(2)}${prepared.ext}`;
+
+      if (supabaseClient?.storage) {
+        try {
+          const objectPath = `products/${uniqueName}`;
+          const { error: uploadError } = await supabaseClient.storage
+            .from('product-images')
+            .upload(objectPath, prepared.blob, {
+              contentType: prepared.mimeType,
+              upsert: false
+            });
+          if (!uploadError) {
+            const { data: publicData } = supabaseClient.storage
+              .from('product-images')
+              .getPublicUrl(objectPath);
+            if (publicData?.publicUrl) {
+              return publicData.publicUrl;
+            }
+          }
+        } catch {
+          // Fall back to authenticated app server upload when storage bucket is not created yet
+        }
+      }
+
+      const { data: sessionData } = await supabaseClient.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        throw new Error('Owner session expired. Please sign in again.');
+      }
+      const response = await fetch('/api/products/upload-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ dataUrl: prepared.dataUrl })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.url) {
+        throw new Error(result.error || 'Could not upload photo from device.');
+      }
+      return result.url;
+    }
+
+    if (chooseProductPhotoButton && productPhotoInput) {
+      chooseProductPhotoButton.addEventListener('click', () => {
+        productPhotoInput.click();
+      });
+
+      productPhotoInput.addEventListener('change', () => {
+        const file = productPhotoInput.files?.[0];
+        if (!file) return;
+        if (!ALLOWED_UPLOAD_TYPES.has(file.type)) {
+          productPhotoInput.value = '';
+          setProductFormMessage('Please select a valid JPEG, PNG, WebP, or GIF photo.', true);
+          return;
+        }
+        setProductFormMessage('');
+        productPhotoPreviewObjectUrl = URL.createObjectURL(file);
+        setProductPhotoPreview(productPhotoPreviewObjectUrl, `${file.name} (${Math.max(1, Math.round(file.size / 1024))} KB)`);
+      });
+    }
+
+    if (clearProductPhotoButton) {
+      clearProductPhotoButton.addEventListener('click', () => {
+        if (productPhotoInput) productPhotoInput.value = '';
+        document.getElementById('productImage').value = '';
+        setProductPhotoPreview('', '');
+      });
+    }
+
     productForm.addEventListener('submit', async (event) => {
       event.preventDefault();
       setProductFormMessage('');
-      const image = safeImageUrl(document.getElementById('productImage').value.trim());
+      const selectedFile = productPhotoInput?.files?.[0] || null;
+      const existingImage = safeImageUrl(document.getElementById('productImage').value.trim());
       const price = Number(document.getElementById('productPrice').value);
       const originalPriceInput = document.getElementById('productOriginalPrice').value;
       const ratingInput = document.getElementById('productRating').value;
-      if (!image || !Number.isSafeInteger(price) || price <= 0) {
-        setProductFormMessage('Enter a valid http(s) image URL and a positive whole-number price.', true);
+      if ((!selectedFile && !existingImage) || !Number.isSafeInteger(price) || price <= 0) {
+        setProductFormMessage('Choose a product photo from your device and enter a positive whole-number price.', true);
         return;
       }
-      const product = {
-        name: document.getElementById('productName').value.trim(),
-        category: document.getElementById('productCategory').value,
-        price,
-        original_price: originalPriceInput ? Number(originalPriceInput) : null,
-        rating: ratingInput ? Number(ratingInput) : null,
-        badge: document.getElementById('productBadge').value.trim() || null,
-        image,
-        description: document.getElementById('productDescription').value.trim(),
-        is_published: document.getElementById('productPublished').checked
-      };
-      if (product.original_price !== null && (!Number.isSafeInteger(product.original_price) || product.original_price <= 0)) {
+      const parsedOriginalPrice = originalPriceInput ? Number(originalPriceInput) : null;
+      const parsedRating = ratingInput ? Number(ratingInput) : null;
+      if (parsedOriginalPrice !== null && (!Number.isSafeInteger(parsedOriginalPrice) || parsedOriginalPrice <= 0)) {
         setProductFormMessage('Enter a valid whole-number was price.', true);
         return;
       }
-      if (product.rating !== null && (!Number.isFinite(product.rating) || product.rating < 0 || product.rating > 5)) {
+      if (parsedRating !== null && (!Number.isFinite(parsedRating) || parsedRating < 0 || parsedRating > 5)) {
         setProductFormMessage('Rating must be between 0 and 5.', true);
         return;
       }
 
-      const productId = document.getElementById('productId').value;
-      if (productId) product.id = productId;
-      const { error } = await supabaseClient.from('products').upsert(product);
-      if (error) {
-        console.error('Unable to save product:', error.message);
-        setProductFormMessage('Could not save product: ' + error.message, true);
-        return;
-      }
+      const saveButton = document.getElementById('saveProductButton');
+      const originalSaveLabel = saveButton.textContent;
+      saveButton.disabled = true;
+      saveButton.textContent = selectedFile ? 'Uploading photo...' : 'Saving...';
+      try {
+        const image = selectedFile ? await uploadOwnerProductPhoto(selectedFile) : existingImage;
+        document.getElementById('productImage').value = image;
+        const product = {
+          name: document.getElementById('productName').value.trim(),
+          category: document.getElementById('productCategory').value,
+          price,
+          original_price: parsedOriginalPrice,
+          rating: parsedRating,
+          badge: document.getElementById('productBadge').value.trim() || null,
+          image,
+          description: document.getElementById('productDescription').value.trim(),
+          is_published: document.getElementById('productPublished').checked
+        };
 
-      resetProductForm();
-      setProductFormMessage('Product saved and shared with customers.');
-      await Promise.all([refreshOwnerProducts(), loadProducts()]);
+        const productId = document.getElementById('productId').value;
+        if (productId) product.id = productId;
+        const { error } = await supabaseClient.from('products').upsert(product);
+        if (error) {
+          console.error('Unable to save product:', error.message);
+          setProductFormMessage('Could not save product: ' + error.message, true);
+          return;
+        }
+
+        resetProductForm();
+        setProductFormMessage('Product saved and shared with customers.');
+        await Promise.all([refreshOwnerProducts(), loadProducts()]);
+      } catch (error) {
+        console.error('Unable to save product:', error.message);
+        setProductFormMessage(error.message || 'Could not upload photo or save product.', true);
+      } finally {
+        saveButton.disabled = false;
+        if (saveButton.textContent === 'Uploading photo...' || saveButton.textContent === 'Saving...') {
+          saveButton.textContent = originalSaveLabel;
+        }
+      }
     });
 
     ownerProductList.addEventListener('click', async (event) => {
@@ -1412,6 +1648,8 @@
         document.getElementById('productRating').value = product.rating || '';
         document.getElementById('productBadge').value = product.badge;
         document.getElementById('productImage').value = product.image;
+        if (productPhotoInput) productPhotoInput.value = '';
+        setProductPhotoPreview(safeImageUrl(product.image), 'Current product photo (choose a new photo to replace it).');
         document.getElementById('productDescription').value = product.description;
         document.getElementById('productPublished').checked = product.isPublished;
         document.getElementById('saveProductButton').textContent = 'Save changes';
