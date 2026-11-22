@@ -122,3 +122,109 @@ test('createOrderHistoryManager merges Supabase RPC results with session records
   const statusList = await manager.lookupStatuses(['bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']);
   assert.equal(statusList.length, 2);
 });
+
+test('confirmOrder saves expected delivery and confirmPayment auto-updates order to completed with persistence', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { createPushManager } = require('./push.js');
+
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'zawadi-orders-meta-'));
+  const stateFile = path.join(tmpDir, 'order-meta.json');
+  const supabasePatches = [];
+  const sentNotifications = [];
+
+  const mockPush = createPushManager({
+    webPushClient: {
+      generateVAPIDKeys: () => ({ publicKey: 'PUB_KEY', privateKey: 'PRIV_KEY' }),
+      setVapidDetails: () => {},
+      sendNotification: async (_sub, payload) => {
+        sentNotifications.push(JSON.parse(payload));
+      }
+    },
+    env: {}
+  });
+
+  const orderId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  mockPush.subscribe({
+    subscription: {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/order-confirm-test',
+      keys: {
+        p256dh: 'BOr9x7v5k6s2t1u4w8y0z3a6c9e2g5i8k1m4o7q0s3u6w9y2',
+        auth: 'a1b2c3d4e5f6g7h8i9j0'
+      }
+    },
+    orderIds: [orderId]
+  });
+
+  const fetchMock = async (url, options = {}) => {
+    if (String(url).includes('/rest/v1/orders') && options.method === 'PATCH') {
+      supabasePatches.push({ url: String(url), body: JSON.parse(options.body) });
+      return { ok: true, status: 204 };
+    }
+    return { ok: false, status: 404, json: async () => ({}) };
+  };
+
+  try {
+    const manager = createOrderHistoryManager({
+      env: { SUPABASE_URL: 'https://example.supabase.co', SUPABASE_ANON_KEY: 'anon-key' },
+      fetchImpl: fetchMock,
+      pushManager: mockPush,
+      stateFile
+    });
+
+    manager.recordOrder({
+      orderId,
+      phone: '0722100530',
+      items: [{ product_name: 'Pink Rose Hamper', quantity: 1, unit_price: 2500 }],
+      total: 2500
+    });
+
+    const missingEta = await manager.confirmOrder({ orderId, expectedDelivery: '   ' });
+    assert.equal(missingEta.ok, false);
+    assert.equal(missingEta.status, 400);
+
+    const confirmRes = await manager.confirmOrder({
+      orderId,
+      expectedDelivery: 'Today within 2 hours',
+      customMessage: 'Rider Peter will call before arriving.',
+      customerName: 'Grace Muthoni',
+      ownerToken: 'owner-jwt'
+    });
+    assert.equal(confirmRes.ok, true);
+    assert.equal(confirmRes.status, 'confirmed');
+    assert.equal(confirmRes.expectedDelivery, 'Today within 2 hours');
+    assert.match(confirmRes.customerMessage, /Expected delivery: Today within 2 hours/);
+    assert.equal(sentNotifications.length, 1);
+    assert.equal(supabasePatches[0].body.status, 'confirmed');
+
+    const payRes = await manager.confirmPayment({
+      orderId,
+      paymentReference: 'MPESA-QWE123',
+      customerName: 'Grace Muthoni',
+      ownerToken: 'owner-jwt'
+    });
+    assert.equal(payRes.ok, true);
+    assert.equal(payRes.status, 'completed');
+    assert.equal(payRes.paymentStatus, 'paid');
+    assert.equal(payRes.paymentReference, 'MPESA-QWE123');
+    assert.equal(sentNotifications.length, 2);
+    assert.equal(sentNotifications[1].status, 'completed');
+    assert.equal(supabasePatches[1].body.status, 'completed');
+
+    const history = await manager.lookupByPhone('0722100530');
+    assert.equal(history.orders[0].status, 'completed');
+    assert.equal(history.orders[0].expected_delivery, 'Today within 2 hours');
+    assert.equal(history.orders[0].payment_status, 'paid');
+    assert.equal(history.orders[0].payment_reference, 'MPESA-QWE123');
+
+    const reloadedManager = createOrderHistoryManager({ stateFile, fetchImpl: fetchMock });
+    const reloadedStatuses = await reloadedManager.lookupStatuses([orderId]);
+    assert.equal(reloadedStatuses.length, 1);
+    assert.equal(reloadedStatuses[0].status, 'completed');
+    assert.equal(reloadedStatuses[0].expectedDelivery, 'Today within 2 hours');
+    assert.equal(reloadedStatuses[0].paymentStatus, 'paid');
+  } finally {
+    await fs.promises.rm(tmpDir, { recursive: true, force: true });
+  }
+});

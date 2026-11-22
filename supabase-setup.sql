@@ -129,8 +129,21 @@ create table if not exists public.orders (
   customer_note text check (customer_note is null or char_length(customer_note) <= 1000),
   total integer not null check (total > 0),
   status text not null default 'pending' check (status in ('pending', 'confirmed', 'completed', 'cancelled')),
+  expected_delivery text check (expected_delivery is null or char_length(expected_delivery) <= 120),
+  owner_message text check (owner_message is null or char_length(owner_message) <= 280),
+  payment_status text not null default 'pending' check (payment_status in ('pending', 'paid')),
+  payment_reference text check (payment_reference is null or char_length(payment_reference) <= 80),
+  confirmed_at timestamptz,
+  payment_confirmed_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table public.orders add column if not exists expected_delivery text check (expected_delivery is null or char_length(expected_delivery) <= 120);
+alter table public.orders add column if not exists owner_message text check (owner_message is null or char_length(owner_message) <= 280);
+alter table public.orders add column if not exists payment_status text not null default 'pending';
+alter table public.orders add column if not exists payment_reference text check (payment_reference is null or char_length(payment_reference) <= 80);
+alter table public.orders add column if not exists confirmed_at timestamptz;
+alter table public.orders add column if not exists payment_confirmed_at timestamptz;
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
@@ -145,7 +158,7 @@ alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 
 grant select on public.orders, public.order_items to authenticated;
-grant update (status) on public.orders to authenticated;
+grant update (status, expected_delivery, owner_message, payment_status, payment_reference, confirmed_at, payment_confirmed_at) on public.orders to authenticated;
 
 drop policy if exists "Owner can read orders" on public.orders;
 create policy "Owner can read orders"
@@ -433,3 +446,53 @@ $$;
 
 revoke all on function public.get_order_history_by_phone(text) from public;
 grant execute on function public.get_order_history_by_phone(text) to anon, authenticated;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'product-images',
+  'product-images',
+  true,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+)
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Anyone can view product images" on storage.objects;
+create policy "Anyone can view product images"
+  on storage.objects for select
+  to public
+  using (bucket_id = 'product-images');
+
+drop policy if exists "Owner can upload product images" on storage.objects;
+create policy "Owner can upload product images"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );
+
+drop policy if exists "Owner can update product images" on storage.objects;
+create policy "Owner can update product images"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  )
+  with check (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );
+
+drop policy if exists "Owner can delete product images" on storage.objects;
+create policy "Owner can delete product images"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'product-images'
+    and (auth.jwt() -> 'app_metadata' ->> 'role') = 'owner'
+  );

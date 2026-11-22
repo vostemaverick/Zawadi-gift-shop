@@ -1,11 +1,15 @@
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
+const os = require('node:os');
 const path = require('node:path');
 const { createPushManager } = require('./push');
 const { createOrderHistoryManager } = require('./orders');
+const { createImageUploadManager } = require('./uploads');
 
 const projectRoot = path.resolve(__dirname, '..');
 const MAX_JSON_BODY_BYTES = 16 * 1024;
+const MAX_UPLOAD_BODY_BYTES = 3 * 1024 * 1024;
 const mimeTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.html', 'text/html; charset=utf-8'],
@@ -30,7 +34,7 @@ function sendJson(response, statusCode, payload) {
   response.end(body);
 }
 
-function readJsonBody(request) {
+function readJsonBody(request, maxBytes = MAX_JSON_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     let totalBytes = 0;
     const chunks = [];
@@ -39,7 +43,7 @@ function readJsonBody(request) {
     request.on('data', (chunk) => {
       if (aborted) return;
       totalBytes += chunk.length;
-      if (totalBytes > MAX_JSON_BODY_BYTES) {
+      if (totalBytes > maxBytes) {
         aborted = true;
         reject(Object.assign(new Error('Request body is too large.'), { statusCode: 413 }));
         request.destroy();
@@ -72,7 +76,17 @@ function readJsonBody(request) {
   });
 }
 
-async function handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, checkHistoryRateLimit) {
+function verifyPaymentWebhookSecret(request, env = process.env) {
+  const configured = typeof env.PAYMENT_WEBHOOK_SECRET === 'string' ? env.PAYMENT_WEBHOOK_SECRET.trim() : '';
+  if (!configured) return false;
+  const provided = String(request.headers['x-payment-secret'] || '');
+  const expectedBuf = Buffer.from(configured, 'utf8');
+  const providedBuf = Buffer.from(provided, 'utf8');
+  if (expectedBuf.length !== providedBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, providedBuf);
+}
+
+async function handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, imageUploadManager, checkHistoryRateLimit) {
   if (pathname === '/api/push/public-key') {
     if (request.method !== 'GET') {
       response.writeHead(405, { Allow: 'GET' });
@@ -168,13 +182,88 @@ async function handleApiRoute(request, response, pathname, pushManager, orderHis
       const result = await pushManager.notifyOrderStatus({
         orderId: body.orderId,
         status: body.status,
-        customerName: body.customerName
+        customerName: body.customerName,
+        expectedDelivery: body.expectedDelivery,
+        customMessage: body.customMessage,
+        paymentConfirmed: body.paymentConfirmed,
+        paymentReference: body.paymentReference
       });
       if (!result.ok) {
         sendJson(response, result.status || 400, { error: result.error });
         return true;
       }
-      orderHistoryManager.updateRecordedStatus(body.orderId, body.status);
+      orderHistoryManager.updateRecordedStatus(body.orderId, body.status, {
+        expectedDelivery: body.expectedDelivery,
+        ownerMessage: body.customMessage,
+        paymentConfirmed: body.paymentConfirmed,
+        paymentReference: body.paymentReference
+      });
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, error.statusCode || 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/orders/confirm') {
+    if (request.method !== 'POST') {
+      response.writeHead(405, { Allow: 'POST' });
+      response.end();
+      return true;
+    }
+    const authResult = await pushManager.verifyOwnerToken(request.headers.authorization || '');
+    if (!authResult.ok) {
+      sendJson(response, authResult.status || 401, { error: authResult.error });
+      return true;
+    }
+    try {
+      const body = await readJsonBody(request);
+      const result = await orderHistoryManager.confirmOrder({
+        orderId: body.orderId,
+        expectedDelivery: body.expectedDelivery,
+        customMessage: body.customMessage,
+        customerName: body.customerName,
+        ownerToken: authResult.token || ''
+      });
+      if (!result.ok) {
+        sendJson(response, result.status || 400, { error: result.error });
+        return true;
+      }
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, error.statusCode || 400, { error: error.message });
+    }
+    return true;
+  }
+
+  if (pathname === '/api/orders/confirm-payment') {
+    if (request.method !== 'POST') {
+      response.writeHead(405, { Allow: 'POST' });
+      response.end();
+      return true;
+    }
+    const webhookAuthorized = verifyPaymentWebhookSecret(request);
+    let ownerToken = '';
+    if (!webhookAuthorized) {
+      const authResult = await pushManager.verifyOwnerToken(request.headers.authorization || '');
+      if (!authResult.ok) {
+        sendJson(response, authResult.status || 401, { error: authResult.error });
+        return true;
+      }
+      ownerToken = authResult.token || '';
+    }
+    try {
+      const body = await readJsonBody(request);
+      const result = await orderHistoryManager.confirmPayment({
+        orderId: body.orderId,
+        paymentReference: body.paymentReference,
+        customerName: body.customerName,
+        ownerToken
+      });
+      if (!result.ok) {
+        sendJson(response, result.status || 400, { error: result.error });
+        return true;
+      }
       sendJson(response, 200, result);
     } catch (error) {
       sendJson(response, error.statusCode || 400, { error: error.message });
@@ -250,12 +339,38 @@ async function handleApiRoute(request, response, pathname, pushManager, orderHis
     return true;
   }
 
+  if (pathname === '/api/products/upload-image') {
+    if (request.method !== 'POST') {
+      response.writeHead(405, { Allow: 'POST' });
+      response.end();
+      return true;
+    }
+    const authResult = await pushManager.verifyOwnerToken(request.headers.authorization || '');
+    if (!authResult.ok) {
+      sendJson(response, authResult.status || 401, { error: authResult.error });
+      return true;
+    }
+    try {
+      const body = await readJsonBody(request, MAX_UPLOAD_BODY_BYTES);
+      const result = await imageUploadManager.saveImage({ dataUrl: body.dataUrl });
+      if (!result.ok) {
+        sendJson(response, result.status || 400, { error: result.error });
+        return true;
+      }
+      sendJson(response, 200, result);
+    } catch (error) {
+      sendJson(response, error.statusCode || 400, { error: error.message });
+    }
+    return true;
+  }
+
   return false;
 }
 
 function createAppServer({
   pushManager = createPushManager(),
-  orderHistoryManager = createOrderHistoryManager({ pushManager })
+  orderHistoryManager = createOrderHistoryManager({ pushManager }),
+  imageUploadManager = createImageUploadManager()
 } = {}) {
   const historyRateMap = new Map();
   const checkHistoryRateLimit = (ip) => {
@@ -282,7 +397,7 @@ function createAppServer({
     }
 
     if (pathname.startsWith('/api/')) {
-      const handled = await handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, checkHistoryRateLimit);
+      const handled = await handleApiRoute(request, response, pathname, pushManager, orderHistoryManager, imageUploadManager, checkHistoryRateLimit);
       if (!handled) {
         sendJson(response, 404, { error: 'Not found' });
       }
@@ -296,6 +411,13 @@ function createAppServer({
     }
 
     const requestPath = pathname.endsWith('/') ? `${pathname}index.html` : pathname;
+    const segments = requestPath.split('/').filter(Boolean);
+    if (segments.some((segment) => segment.startsWith('.') && segment !== '.' && segment !== '..')) {
+      response.writeHead(404);
+      response.end('Not found');
+      return;
+    }
+
     const filePath = path.resolve(projectRoot, `.${requestPath}`);
     const relativePath = path.relative(projectRoot, filePath);
     if (relativePath.startsWith(`..${path.sep}`) || relativePath === '..' || path.isAbsolute(relativePath)) {
@@ -347,7 +469,12 @@ if (require.main === module) {
   }
 
   const host = process.env.HOST || '0.0.0.0';
-  const server = createAppServer();
+  const pushManager = createPushManager();
+  const orderHistoryManager = createOrderHistoryManager({
+    pushManager,
+    stateFile: path.join(os.tmpdir(), 'zawadi-order-meta.json')
+  });
+  const server = createAppServer({ pushManager, orderHistoryManager });
   server.listen(port, host, () => {
     console.log(`Serving Zawadi Gift Shop at http://${host}:${port}`);
   });
@@ -358,4 +485,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createAppServer };
+module.exports = { createAppServer, verifyPaymentWebhookSecret };

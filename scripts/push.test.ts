@@ -32,10 +32,15 @@ test('buildOrderNotificationPayload builds clear status messages', () => {
   const confirmed = buildOrderNotificationPayload({
     orderId: orderUuid,
     status: 'confirmed',
-    customerName: 'Amina Wanjiku'
+    customerName: 'Amina Wanjiku',
+    expectedDelivery: 'Today 3:00 PM - 5:00 PM',
+    customMessage: 'Rider will call on arrival.'
   });
   assert.equal(confirmed.title, 'Zawadi Gift Shop · Order confirmed!');
   assert.match(confirmed.body, /Amina: Good news! Order 11111111 is confirmed/);
+  assert.match(confirmed.body, /Expected delivery: Today 3:00 PM - 5:00 PM\./);
+  assert.match(confirmed.body, /Rider will call on arrival\./);
+  assert.equal(confirmed.expectedDelivery, 'Today 3:00 PM - 5:00 PM');
   assert.equal(confirmed.url, './#orders');
 
   const completed = buildOrderNotificationPayload({
@@ -44,6 +49,16 @@ test('buildOrderNotificationPayload builds clear status messages', () => {
   });
   assert.equal(completed.title, 'Zawadi Gift Shop · Order delivered');
   assert.match(completed.body, /Order 11111111 has been marked as completed/);
+
+  const paidCompleted = buildOrderNotificationPayload({
+    orderId: orderUuid,
+    status: 'completed',
+    customerName: 'Amina Wanjiku',
+    paymentConfirmed: true,
+    paymentReference: 'SJ48K912MP'
+  });
+  assert.equal(paidCompleted.title, 'Zawadi Gift Shop · Payment confirmed & order completed');
+  assert.match(paidCompleted.body, /Payment confirmed \(SJ48K912MP\)! Order 11111111 is now completed\./);
 });
 
 test('createPushManager notifies matching order subscribers and prunes expired 410 endpoints', async () => {

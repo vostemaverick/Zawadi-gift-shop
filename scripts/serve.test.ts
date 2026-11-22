@@ -242,3 +242,193 @@ test('records orders and serves phone-based order history with validation and st
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('enforces owner auth and validates device image uploads on /api/products/upload-image', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { createPushManager } = require('./push.js');
+  const { createImageUploadManager } = require('./uploads.js');
+
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'zawadi-serve-upload-'));
+  const mockPushManager = createPushManager({
+    webPushClient: {
+      generateVAPIDKeys: () => ({ publicKey: 'TEST_PUBLIC_KEY', privateKey: 'TEST_PRIVATE_KEY' }),
+      setVapidDetails: () => {},
+      sendNotification: async () => {}
+    },
+    env: {},
+    fetchImpl: async (_url, options) => {
+      if (options.headers.Authorization === 'Bearer valid-owner') {
+        return { ok: true, json: async () => ({ id: 'owner-1', app_metadata: { role: 'owner' } }) };
+      }
+      return { ok: false, status: 401, json: async () => ({}) };
+    }
+  });
+
+  const server = createAppServer({
+    pushManager: mockPushManager,
+    imageUploadManager: createImageUploadManager({ uploadDir: tmpDir })
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const pngDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  try {
+    const unauthRes = await fetch(`${baseUrl}/api/products/upload-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl: pngDataUrl })
+    });
+    assert.equal(unauthRes.status, 401);
+
+    const uploadRes = await fetch(`${baseUrl}/api/products/upload-image`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer valid-owner'
+      },
+      body: JSON.stringify({ dataUrl: pngDataUrl })
+    });
+    assert.equal(uploadRes.status, 200);
+    const uploadJson = await uploadRes.json();
+    assert.equal(uploadJson.ok, true);
+    assert.match(uploadJson.url, /^\/uploads\/products\/[0-9a-f-]+\.png$/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    await fs.promises.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('confirms orders with delivery ETA and auto-completes orders on payment confirmation via owner or webhook secret', async () => {
+  const { createPushManager } = require('./push.js');
+  const { createOrderHistoryManager } = require('./orders.js');
+
+  const previousSecret = process.env.PAYMENT_WEBHOOK_SECRET;
+  process.env.PAYMENT_WEBHOOK_SECRET = 'test-mpesa-webhook-secret';
+
+  const sent = [];
+  const mockPushManager = createPushManager({
+    webPushClient: {
+      generateVAPIDKeys: () => ({ publicKey: 'TEST_PUBLIC_KEY', privateKey: 'TEST_PRIVATE_KEY' }),
+      setVapidDetails: () => {},
+      sendNotification: async (_sub, payload) => {
+        sent.push(JSON.parse(payload));
+      }
+    },
+    env: {},
+    fetchImpl: async (_url, options) => {
+      if (options.headers.Authorization === 'Bearer valid-owner') {
+        return { ok: true, json: async () => ({ id: 'owner-1', app_metadata: { role: 'owner' } }) };
+      }
+      return { ok: false, status: 401, json: async () => ({}) };
+    }
+  });
+
+  const orderHistoryManager = createOrderHistoryManager({
+    pushManager: mockPushManager,
+    fetchImpl: async () => ({ ok: true, status: 204, json: async () => ([]) })
+  });
+
+  const server = createAppServer({ pushManager: mockPushManager, orderHistoryManager });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const dotfileRes = await fetch(`${baseUrl}/.env.example`);
+    assert.equal(dotfileRes.status, 404);
+
+    const orderId = '55555555-5555-4555-8555-555555555555';
+    mockPushManager.subscribe({
+      subscription: {
+        endpoint: 'https://fcm.googleapis.com/fcm/send/order-flow-test',
+        keys: {
+          p256dh: 'BOr9x7v5k6s2t1u4w8y0z3a6c9e2g5i8k1m4o7q0s3u6w9y2',
+          auth: 'a1b2c3d4e5f6g7h8i9j0'
+        }
+      },
+      orderIds: [orderId]
+    });
+
+    const unauthConfirm = await fetch(`${baseUrl}/api/orders/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, expectedDelivery: 'Today 4 PM' })
+    });
+    assert.equal(unauthConfirm.status, 401);
+
+    const confirmRes = await fetch(`${baseUrl}/api/orders/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer valid-owner'
+      },
+      body: JSON.stringify({
+        orderId,
+        expectedDelivery: 'Today 2:00 PM – 5:00 PM',
+        customMessage: 'Call 0722100530 anytime.',
+        customerName: 'Daniel Kariuki'
+      })
+    });
+    assert.equal(confirmRes.status, 200);
+    const confirmJson = await confirmRes.json();
+    assert.equal(confirmJson.ok, true);
+    assert.equal(confirmJson.status, 'confirmed');
+    assert.equal(confirmJson.expectedDelivery, 'Today 2:00 PM – 5:00 PM');
+    assert.match(confirmJson.customerMessage, /Expected delivery: Today 2:00 PM – 5:00 PM/);
+
+    const badPayWebhook = await fetch(`${baseUrl}/api/orders/confirm-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-payment-secret': 'wrong-secret'
+      },
+      body: JSON.stringify({ orderId, paymentReference: 'MP123' })
+    });
+    assert.equal(badPayWebhook.status, 401);
+
+    const webhookPayRes = await fetch(`${baseUrl}/api/orders/confirm-payment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-payment-secret': 'test-mpesa-webhook-secret'
+      },
+      body: JSON.stringify({
+        orderId,
+        paymentReference: 'SJ99MPESA1',
+        customerName: 'Daniel Kariuki'
+      })
+    });
+    assert.equal(webhookPayRes.status, 200);
+    const payJson = await webhookPayRes.json();
+    assert.equal(payJson.ok, true);
+    assert.equal(payJson.status, 'completed');
+    assert.equal(payJson.paymentStatus, 'paid');
+    assert.equal(payJson.paymentReference, 'SJ99MPESA1');
+    assert.equal(sent.length, 2);
+    assert.equal(sent[0].status, 'confirmed');
+    assert.equal(sent[1].status, 'completed');
+    assert.equal(sent[1].paymentConfirmed, true);
+
+    const statusRes = await fetch(`${baseUrl}/api/orders/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderIds: [orderId] })
+    });
+    assert.equal(statusRes.status, 200);
+    const statusJson = await statusRes.json();
+    assert.equal(statusJson.statuses[0].status, 'completed');
+    assert.equal(statusJson.statuses[0].paymentStatus, 'paid');
+    assert.equal(statusJson.statuses[0].expectedDelivery, 'Today 2:00 PM – 5:00 PM');
+  } finally {
+    if (previousSecret === undefined) {
+      delete process.env.PAYMENT_WEBHOOK_SECRET;
+    } else {
+      process.env.PAYMENT_WEBHOOK_SECRET = previousSecret;
+    }
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
