@@ -101,10 +101,15 @@
       transform: translateY(12px);
       opacity: 0;
       transition: all 0.25s ease;
+      z-index: 60;
     }
     .toast.show {
       opacity: 1;
       transform: translateY(0);
+    }
+
+    #ownerPanel {
+      z-index: 70;
     }
 
     .mobile-nav {
@@ -165,6 +170,10 @@
         max-width: 420px;
       }
     }
+
+    #shop, #orders, #about, #contact {
+      scroll-margin-top: 8.5rem;
+    }
   </style>
 </head>
 <body class="antialiased">
@@ -188,6 +197,7 @@
       <nav class="hidden lg:flex items-center gap-7 text-sm font-medium text-slate-700">
         <a href="#home" class="nav-link active">Home</a>
         <a href="#shop" class="nav-link">Shop</a>
+        <a href="#orders" class="nav-link">Orders</a>
         <a href="#about" class="nav-link">About</a>
         <a href="#reviews" class="nav-link">Reviews</a>
         <a href="#contact" class="nav-link">Contact</a>
@@ -209,6 +219,7 @@
     <div id="mobileMenu" class="hidden lg:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-3 text-sm font-medium text-slate-700">
       <a href="#home" class="block">Home</a>
       <a href="#shop" class="block">Shop</a>
+      <a href="#orders" class="block">Order history</a>
       <a href="#about" class="block">About</a>
       <a href="#reviews" class="block">Reviews</a>
       <a href="#contact" class="block">Contact</a>
@@ -231,7 +242,7 @@
 
           <div class="mt-10 flex flex-wrap gap-6 text-sm font-medium text-slate-600">
             <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-green-500"></span>Same-day delivery</div>
-            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>Gift wrapping</div>
+            <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>Gift wrapping</div>
             <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-pink-400"></span>5-star service</div>
           </div>
         </div>
@@ -297,6 +308,49 @@
       </div>
 
       <div id="productGrid" class="grid grid-cols-1 gap-6"></div>
+    </section>
+
+    <section id="orders" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 space-y-4">
+      <div class="bg-white border border-pink-100 rounded-2xl p-5 shadow-sm">
+        <div>
+          <p class="text-xs uppercase tracking-[0.2em] text-pink-shop font-semibold">Past orders</p>
+          <h3 class="text-xl font-black text-slate-900 mt-1">Your order history</h3>
+          <p class="text-sm text-slate-600 mt-2">Enter the phone number used at checkout to retrieve your past orders and check their latest status.</p>
+        </div>
+
+        <form id="orderHistoryForm" class="mt-4 flex flex-col sm:flex-row gap-2">
+          <label for="historyPhoneInput" class="sr-only">Phone number</label>
+          <input id="historyPhoneInput" type="tel" autocomplete="tel" placeholder="Phone number (e.g. 0722100530)" class="flex-1 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm focus:border-pink-400 focus:outline-none" required />
+          <button id="lookupHistoryButton" type="submit" class="bg-pink-shop hover:bg-pink-600 text-white px-5 py-2.5 rounded-full text-sm font-bold transition whitespace-nowrap">Find orders</button>
+        </form>
+        <p id="orderHistoryStatus" class="hidden text-xs mt-3" role="status" aria-live="polite"></p>
+        <div id="orderHistoryList" class="mt-4 space-y-3"></div>
+      </div>
+
+      <div class="bg-white border border-pink-100 rounded-2xl p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p class="text-xs uppercase tracking-[0.2em] text-pink-shop font-semibold">Order alerts</p>
+            <h3 class="text-xl font-black text-slate-900 mt-1">Track orders &amp; notifications</h3>
+          </div>
+          <span id="pushStatusBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">Alerts off</span>
+        </div>
+        <p class="text-sm text-slate-600 mt-2">Enable device push notifications to receive instant alerts when your order is confirmed or delivered.</p>
+
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="enablePushButton" type="button" class="bg-gray-900 hover:bg-pink-500 text-white px-4 py-2.5 rounded-full text-sm font-semibold transition">Enable notifications</button>
+          <button id="testPushButton" type="button" class="hidden border border-pink-300 bg-white text-pink-shop hover:border-pink-500 px-4 py-2.5 rounded-full text-sm font-semibold transition">Send test alert</button>
+        </div>
+        <p id="pushStatusMessage" class="hidden text-xs mt-3" role="status" aria-live="polite"></p>
+
+        <div class="mt-6 pt-5 border-t border-slate-100">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h4 class="font-bold text-slate-900 text-sm">Recent orders on this device</h4>
+            <button id="refreshTrackedOrders" type="button" class="text-xs font-semibold text-pink-shop">Refresh status</button>
+          </div>
+          <div id="trackedOrdersList" class="space-y-3"></div>
+        </div>
+      </div>
     </section>
 
     <section id="about" class="bg-gray-900 text-white py-14">
@@ -387,6 +441,11 @@
         <textarea id="customerNote" rows="3" placeholder="Delivery note (optional)" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 focus:border-pink-400 focus:outline-none"></textarea>
         <button id="placeOrderButton" type="submit" class="w-full bg-pink-shop hover:bg-pink-600 text-white rounded-xl py-3 font-bold transition">Place order</button>
         <p id="checkoutStatus" class="hidden text-sm" role="status" aria-live="polite"></p>
+        <div id="checkoutPushPrompt" class="hidden rounded-xl border border-pink-200 bg-pink-50 p-3 text-xs text-slate-700">
+          <p class="font-semibold text-slate-900">Get instant status updates for this order</p>
+          <p class="mt-1 text-slate-600">Enable push notifications so you know right away when your gift is confirmed or out for delivery.</p>
+          <button id="checkoutEnablePushButton" type="button" class="mt-2 bg-gray-900 hover:bg-pink-500 text-white px-3.5 py-2 rounded-full font-semibold transition">Enable order alerts</button>
+        </div>
       </form>
     </div>
   </aside>
@@ -405,7 +464,7 @@
         <button id="closeOwnerPanel" type="button" class="text-2xl text-slate-500" aria-label="Close owner panel">×</button>
       </div>
 
-      <div id="ownerSetupNotice" class="hidden m-5 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900">
+      <div id="ownerSetupNotice" class="hidden m-5 p-4 rounded-xl bg-yellow-50 border border-yellow-200 text-sm text-yellow-900">
         Shared product management is not configured yet. Follow the setup steps in <code>SETUP.md</code>, then add your Supabase project URL and public anon key in <code>index.html</code>.
       </div>
 
@@ -541,13 +600,44 @@
 
     const formatMoney = (amount) => new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', maximumFractionDigits: 0 }).format(amount);
     const cartKey = 'zawadi-shop-cart';
+    const trackedOrdersKey = 'zawadi-tracked-orders';
+    const customerPhoneKey = 'zawadi-customer-phone';
     let cartLoadError = false;
+
+    const ORDER_STATUS_STYLES = {
+      pending: { label: 'Pending confirmation', badgeClass: 'bg-yellow-100 text-yellow-800' },
+      confirmed: { label: 'Confirmed & preparing', badgeClass: 'bg-pink-100 text-pink-700' },
+      completed: { label: 'Delivered / completed', badgeClass: 'bg-green-100 text-green-800' },
+      cancelled: { label: 'Cancelled', badgeClass: 'bg-red-100 text-red-700' }
+    };
+
+    function loadTrackedOrders() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(trackedOrdersKey) || '[]');
+        if (!Array.isArray(saved)) return [];
+        return saved.filter((entry) => entry && typeof entry.id === 'string').slice(0, 20);
+      } catch {
+        return [];
+      }
+    }
+
+    function loadSavedCustomerPhone() {
+      try {
+        return localStorage.getItem(customerPhoneKey) || '';
+      } catch {
+        return '';
+      }
+    }
 
     const state = {
       activeCategory: 'all',
       searchTerm: '',
       catalogError: '',
-      cart: loadSavedCart()
+      cart: loadSavedCart(),
+      trackedOrders: loadTrackedOrders(),
+      orderHistory: [],
+      orderHistoryPhone: loadSavedCustomerPhone(),
+      orderHistorySearched: false
     };
 
     const productGrid = document.getElementById('productGrid');
@@ -568,13 +658,24 @@
     const ownerLoginError = document.getElementById('ownerLoginError');
     const productForm = document.getElementById('productForm');
     const ownerProductList = document.getElementById('ownerProductList');
+    const ownerOrderList = document.getElementById('ownerOrderList');
     const installAppButton = document.getElementById('installAppButton');
+    const enablePushButton = document.getElementById('enablePushButton');
+    const testPushButton = document.getElementById('testPushButton');
+    const pushStatusBadge = document.getElementById('pushStatusBadge');
+    const pushStatusMessage = document.getElementById('pushStatusMessage');
+    const trackedOrdersList = document.getElementById('trackedOrdersList');
+    const orderHistoryForm = document.getElementById('orderHistoryForm');
+    const historyPhoneInput = document.getElementById('historyPhoneInput');
+    const lookupHistoryButton = document.getElementById('lookupHistoryButton');
+    const orderHistoryStatus = document.getElementById('orderHistoryStatus');
+    const orderHistoryList = document.getElementById('orderHistoryList');
+    const checkoutPushPrompt = document.getElementById('checkoutPushPrompt');
+    const checkoutEnablePushButton = document.getElementById('checkoutEnablePushButton');
     let ownerProducts = [];
     let ownerOrders = [];
     let deferredInstallPrompt = null;
     let ownerPasswordFlow = null;
-    let selectedProductImage = null;
-    let existingProductImageUrl = '';
 
     function loadSavedCart() {
       try {
@@ -661,14 +762,16 @@
 
     function renderOwnerOrders() {
       ownerOrderList.innerHTML = ownerOrders.length
-        ? ownerOrders.map((order) => `
+        ? ownerOrders.map((order) => {
+          const statusMeta = ORDER_STATUS_STYLES[order.status] || ORDER_STATUS_STYLES.pending;
+          return `
           <article class="border border-slate-200 rounded-xl p-4">
             <div class="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p class="font-bold">${escapeHTML(order.customer_name)} <span class="font-normal text-slate-500">· ${escapeHTML(order.customer_phone)}</span></p>
                 <p class="text-xs text-slate-500 mt-1">Order ${escapeHTML(order.id.slice(0, 8).toUpperCase())} · ${escapeHTML(new Date(order.created_at).toLocaleString('en-KE'))}</p>
               </div>
-              <span class="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">${escapeHTML(order.status)}</span>
+              <span class="rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.badgeClass}">${escapeHTML(order.status)}</span>
             </div>
             <p class="text-sm text-slate-600 mt-2">Deliver to: ${escapeHTML(order.delivery_location)}</p>
             ${order.customer_note ? `<p class="text-sm text-slate-600 mt-1">Note: ${escapeHTML(order.customer_note)}</p>` : ''}
@@ -676,8 +779,18 @@
               ${order.order_items.map((item) => `<li>${item.quantity} × ${escapeHTML(item.product_name)} · ${formatMoney(item.unit_price * item.quantity)}</li>`).join('')}
             </ul>
             <p class="mt-3 text-right font-bold">${formatMoney(order.total)}</p>
+            <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <select class="order-status-select rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold" data-id="${escapeHTML(order.id)}" aria-label="Order status for ${escapeHTML(order.customer_name)}">
+                <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>Pending</option>
+                <option value="confirmed" ${order.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
+                <option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Completed</option>
+                <option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>
+              </select>
+              <button type="button" class="update-order-status bg-pink-shop hover:bg-pink-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition" data-id="${escapeHTML(order.id)}">Update &amp; notify</button>
+            </div>
           </article>
-        `).join('')
+        `;
+        }).join('')
         : '<p class="text-sm text-slate-500 border border-dashed rounded-xl p-5 text-center">No orders have been placed yet.</p>';
     }
 
@@ -879,7 +992,7 @@
           <div class="p-4">
             <div class="flex items-center justify-between gap-3">
               <h4 class="font-bold text-lg text-slate-900">${escapeHTML(product.name)}</h4>
-              ${product.rating ? `<span class="text-amber-500 text-sm">★ ${escapeHTML(product.rating)}</span>` : ''}
+              ${product.rating ? `<span class="text-yellow-500 text-sm">★ ${escapeHTML(product.rating)}</span>` : ''}
             </div>
             <p class="text-sm text-slate-500 mt-2 min-h-[42px]">${escapeHTML(product.description)}</p>
             <div class="mt-4 grid gap-3">
@@ -1061,11 +1174,24 @@
       });
     }
 
+    function registerStorefrontServiceWorker() {
+      if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+      if (!swRegistrationPromise) {
+        swRegistrationPromise = navigator.serviceWorker.register('service-worker.js').then(async (registration) => {
+          await navigator.serviceWorker.ready;
+          return registration;
+        }).catch((error) => {
+          console.warn('Service worker registration failed:', error);
+          swRegistrationPromise = null;
+          return null;
+        });
+      }
+      return swRegistrationPromise;
+    }
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch((error) => {
-          console.warn('Service worker registration failed:', error);
-        });
+        registerStorefrontServiceWorker().then(() => refreshPushUI());
       });
     }
 
@@ -1088,7 +1214,10 @@
       ownerPanel.classList.add('hidden');
     });
 
+    let forgotPasswordCooldownUntil = 0;
+
     document.getElementById('forgotOwnerPassword').addEventListener('click', async () => {
+      const resetButton = document.getElementById('forgotOwnerPassword');
       const email = document.getElementById('ownerEmail').value.trim();
       const status = document.getElementById('ownerResetStatus');
       const resetButton = document.getElementById('forgotOwnerPassword');
@@ -1102,6 +1231,15 @@
         return;
       }
 
+      const now = Date.now();
+      if (now < forgotPasswordCooldownUntil) {
+        const secondsLeft = Math.ceil((forgotPasswordCooldownUntil - now) / 1000);
+        status.textContent = `A reset email was already requested. Please wait ${secondsLeft}s before trying again, and check your inbox or spam folder.`;
+        status.classList.remove('hidden');
+        return;
+      }
+
+      resetButton.disabled = true;
       try {
         const isNativeApp = window.location.protocol === 'capacitor:'
           || window.location.protocol === 'ionic:';
@@ -1110,35 +1248,15 @@
           : { redirectTo: new URL(window.location.pathname, window.location.origin).toString() };
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, resetOptions);
         if (error) throw error;
+        forgotPasswordCooldownUntil = Date.now() + 60000;
         status.classList.remove('text-red-600');
         status.classList.add('text-green-700');
         status.textContent = 'If an owner account exists for that email, a password reset link has been sent. Check your inbox and spam folder.';
         status.classList.remove('hidden');
       } catch (error) {
         console.error('Unable to request owner password reset:', error.message);
-        const rateLimited = error.status === 429
-          || error.code === 'over_email_send_rate_limit'
-          || /rate limit|too many/i.test(error.message || '');
-        status.textContent = rateLimited
-          ? 'Password reset email rate limit exceeded. Wait about a minute, then try again. If this repeats, configure a custom SMTP provider in Supabase → Project Settings → Auth → SMTP.'
-          : 'Could not send a reset email: ' + error.message;
+        status.textContent = 'Could not send a reset email: ' + error.message;
         status.classList.remove('hidden');
-        if (rateLimited) {
-          resetButton.disabled = true;
-          let secondsRemaining = 60;
-          resetButton.textContent = 'Try again in 60s';
-          const timer = window.setInterval(() => {
-            secondsRemaining -= 1;
-            resetButton.textContent = secondsRemaining > 0
-              ? `Try again in ${secondsRemaining}s`
-              : 'Forgot password?';
-            if (secondsRemaining <= 0) {
-              window.clearInterval(timer);
-              resetButton.disabled = false;
-              resetButton.textContent = 'Forgot password?';
-            }
-          }, 1000);
-        }
       }
     });
 
@@ -1437,13 +1555,59 @@
         if (error) throw error;
         if (!data) throw new Error('The order was not saved. Please try again.');
 
-        const orderReference = String(data).slice(0, 8).toUpperCase();
+        const orderId = String(data);
+        const orderReference = orderId.slice(0, 8).toUpperCase();
+        const orderItemsPayload = state.cart.map((item) => ({
+          product_name: item.name,
+          quantity: item.quantity,
+          unit_price: item.price
+        }));
+        const itemsSummary = state.cart.map((item) => `${item.quantity} × ${item.name}`).join(', ');
+        const orderTotal = state.cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const createdAt = new Date().toISOString();
+        addTrackedOrder({
+          id: orderId,
+          reference: orderReference,
+          itemsSummary,
+          total: orderTotal,
+          status: 'pending',
+          createdAt
+        });
+
+        try {
+          localStorage.setItem(customerPhoneKey, phone);
+        } catch {
+          // Ignore storage errors
+        }
+        if (historyPhoneInput) historyPhoneInput.value = phone;
+
+        fetch('/api/orders/record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId,
+            phone,
+            items: orderItemsPayload,
+            total: orderTotal,
+            status: 'pending',
+            createdAt
+          })
+        }).catch(() => {});
+
         state.cart = [];
         persistCart();
         updateCartUI();
         document.getElementById('checkoutForm').reset();
         setCheckoutMessage(`Order received! Your reference is ${orderReference}. The shop will contact you to confirm delivery and payment.`);
         showToast('Your order has been placed.');
+        lookupOrderHistory(phone, { silent: true });
+
+        if (activePushSubscription || activeFcmToken) {
+          await bindPushForOrders([orderId]);
+          checkoutPushPrompt.classList.add('hidden');
+        } else if (isPushEnvironmentSupported()) {
+          checkoutPushPrompt.classList.remove('hidden');
+        }
       } catch (error) {
         console.error('Unable to place order:', error.message);
         setCheckoutMessage('Could not place your order: ' + error.message, true);
@@ -1453,10 +1617,592 @@
       }
     });
 
+    function persistTrackedOrders() {
+      try {
+        localStorage.setItem(trackedOrdersKey, JSON.stringify(state.trackedOrders.slice(0, 20)));
+      } catch (error) {
+        console.error('Unable to save tracked orders:', error);
+      }
+    }
+
+    function addTrackedOrder(order) {
+      state.trackedOrders = [order, ...state.trackedOrders.filter((entry) => entry.id !== order.id)].slice(0, 20);
+      persistTrackedOrders();
+      renderTrackedOrders();
+    }
+
+    function renderTrackedOrders() {
+      if (!trackedOrdersList) return;
+      if (!state.trackedOrders.length) {
+        trackedOrdersList.innerHTML = '<p class="text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl p-4 text-center">Orders placed from this device will appear here for live status tracking.</p>';
+        return;
+      }
+      trackedOrdersList.innerHTML = state.trackedOrders.map((order) => {
+        const meta = ORDER_STATUS_STYLES[order.status] || ORDER_STATUS_STYLES.pending;
+        return `
+          <div class="border border-slate-200 rounded-xl p-3 bg-slate-50">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-sm text-slate-900 whitespace-nowrap">Order #${escapeHTML(order.reference || String(order.id).slice(0, 8).toUpperCase())}</span>
+              <span class="rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap shrink-0 ${meta.badgeClass}">${escapeHTML(meta.label)}</span>
+            </div>
+            ${order.itemsSummary ? `<p class="text-xs text-slate-600 mt-1">${escapeHTML(order.itemsSummary)}</p>` : ''}
+            <div class="mt-2 flex items-center justify-between text-xs text-slate-500">
+              <span>${order.createdAt ? escapeHTML(new Date(order.createdAt).toLocaleDateString('en-KE')) : ''}</span>
+              ${order.total ? `<strong class="text-slate-900">${formatMoney(order.total)}</strong>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function setOrderHistoryMessage(message, isError = false) {
+      if (!orderHistoryStatus) return;
+      orderHistoryStatus.textContent = message;
+      orderHistoryStatus.classList.toggle('hidden', !message);
+      orderHistoryStatus.classList.toggle('text-red-600', isError);
+      orderHistoryStatus.classList.toggle('text-slate-600', !isError);
+    }
+
+    function renderOrderHistory() {
+      if (!orderHistoryList) return;
+      if (!state.orderHistorySearched) {
+        orderHistoryList.innerHTML = '<p class="text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl p-4 text-center">Enter your checkout phone number above to load your past orders.</p>';
+        return;
+      }
+      if (!state.orderHistory.length) {
+        orderHistoryList.innerHTML = `<p class="text-xs text-slate-500 border border-dashed border-slate-200 rounded-xl p-4 text-center">No past orders were found for ${escapeHTML(state.orderHistoryPhone)}. Double-check the phone number used at checkout.</p>`;
+        return;
+      }
+
+      orderHistoryList.innerHTML = state.orderHistory.map((order) => {
+        const meta = ORDER_STATUS_STYLES[order.status] || ORDER_STATUS_STYLES.pending;
+        const reference = String(order.id || '').slice(0, 8).toUpperCase();
+        const items = Array.isArray(order.items) ? order.items : [];
+        const formattedDate = order.created_at
+          ? new Date(order.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })
+          : '';
+        return `
+          <article class="border border-slate-200 rounded-xl p-3.5 bg-slate-50">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <span class="font-bold text-sm text-slate-900 whitespace-nowrap">Order #${escapeHTML(reference)}</span>
+              <span class="rounded-full px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap shrink-0 ${meta.badgeClass}">${escapeHTML(meta.label)}</span>
+            </div>
+            ${formattedDate ? `<p class="text-[11px] text-slate-500 mt-1">${escapeHTML(formattedDate)}</p>` : ''}
+            ${items.length ? `
+              <ul class="mt-2.5 space-y-1 text-xs text-slate-700 border-t border-slate-200 pt-2">
+                ${items.map((item) => `
+                  <li class="flex items-center justify-between gap-2">
+                    <span class="truncate">${Number(item.quantity) || 1} × ${escapeHTML(item.product_name)}</span>
+                    <span class="whitespace-nowrap font-medium text-slate-900">${formatMoney((Number(item.unit_price) || 0) * (Number(item.quantity) || 1))}</span>
+                  </li>
+                `).join('')}
+              </ul>
+            ` : ''}
+            <div class="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+              <span class="text-slate-500">Order total</span>
+              <strong class="text-sm text-slate-900">${formatMoney(Number(order.total) || 0)}</strong>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function lookupOrderHistory(rawPhone, { silent = false } = {}) {
+      const phone = String(rawPhone || '').trim();
+      const digits = phone.replace(/[^0-9]/g, '');
+      if (digits.length < 7 || digits.length > 20) {
+        if (!silent) setOrderHistoryMessage('Enter a valid phone number (at least 7 digits).', true);
+        return;
+      }
+
+      if (lookupHistoryButton) {
+        lookupHistoryButton.disabled = true;
+        lookupHistoryButton.textContent = 'Searching...';
+      }
+      if (!silent) setOrderHistoryMessage('');
+
+      try {
+        const response = await fetch('/api/orders/history', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || 'Could not look up your orders right now.');
+        }
+
+        state.orderHistory = Array.isArray(payload.orders) ? payload.orders : [];
+        state.orderHistoryPhone = phone;
+        state.orderHistorySearched = true;
+        try {
+          localStorage.setItem(customerPhoneKey, phone);
+        } catch {
+          // Ignore storage errors
+        }
+        renderOrderHistory();
+
+        if (!silent) {
+          setOrderHistoryMessage(
+            state.orderHistory.length
+              ? `Found ${state.orderHistory.length} order${state.orderHistory.length === 1 ? '' : 's'} for ${phone}.`
+              : `No orders found for ${phone}.`
+          );
+        }
+
+        if (activePushSubscription || activeFcmToken) {
+          const activeOrderIds = state.orderHistory
+            .filter((entry) => entry.status === 'pending' || entry.status === 'confirmed')
+            .map((entry) => entry.id);
+          if (activeOrderIds.length) {
+            await bindPushForOrders(activeOrderIds);
+          }
+        }
+      } catch (error) {
+        if (!silent) {
+          setOrderHistoryMessage(error.message || 'Could not retrieve order history.', true);
+        }
+      } finally {
+        if (lookupHistoryButton) {
+          lookupHistoryButton.disabled = false;
+          lookupHistoryButton.textContent = 'Find orders';
+        }
+      }
+    }
+
+    function isNativeCapacitorPushAvailable() {
+      return Boolean(window.Capacitor?.isNativePlatform?.() && window.Capacitor?.Plugins?.PushNotifications);
+    }
+
+    function isPushEnvironmentSupported() {
+      if (isNativeCapacitorPushAvailable()) return true;
+      return Boolean('Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window);
+    }
+
+    function setPushStatusMessage(message, isError = false) {
+      if (!pushStatusMessage) return;
+      pushStatusMessage.textContent = message;
+      pushStatusMessage.classList.toggle('hidden', !message);
+      pushStatusMessage.classList.toggle('text-red-600', isError);
+      pushStatusMessage.classList.toggle('text-green-700', !isError);
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+      const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
+    }
+
+    async function bindPushForOrders(orderIds) {
+      if (!orderIds.length) return;
+      if (activePushSubscription) {
+        try {
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: activePushSubscription.toJSON ? activePushSubscription.toJSON() : activePushSubscription, orderIds })
+          });
+        } catch (error) {
+          console.warn('Unable to sync web push subscription with server:', error);
+        }
+
+        if (supabaseClient) {
+          const jsonSub = activePushSubscription.toJSON ? activePushSubscription.toJSON() : activePushSubscription;
+          for (const orderId of orderIds) {
+            await supabaseClient.rpc('register_push_subscription', {
+              p_order_id: orderId,
+              p_platform: 'web',
+              p_endpoint: jsonSub.endpoint,
+              p_p256dh: jsonSub.keys?.p256dh || null,
+              p_auth: jsonSub.keys?.auth || null
+            }).catch(() => {});
+          }
+        }
+      }
+
+      if (activeFcmToken && supabaseClient) {
+        for (const orderId of orderIds) {
+          await supabaseClient.rpc('register_push_subscription', {
+            p_order_id: orderId,
+            p_platform: 'android',
+            p_fcm_token: activeFcmToken
+          }).catch(() => {});
+        }
+      }
+    }
+
+    async function refreshPushUI() {
+      if (!pushStatusBadge || !enablePushButton) return;
+
+      if (isNativeCapacitorPushAvailable()) {
+        try {
+          const perm = await window.Capacitor.Plugins.PushNotifications.checkPermissions();
+          const granted = perm.receive === 'granted' && Boolean(activeFcmToken);
+          pushStatusBadge.textContent = granted ? 'Alerts active' : perm.receive === 'denied' ? 'Blocked' : 'Alerts off';
+          pushStatusBadge.className = granted
+            ? 'rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800'
+            : perm.receive === 'denied'
+              ? 'rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700'
+              : 'rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600';
+          enablePushButton.textContent = granted ? 'Alerts enabled' : 'Enable notifications';
+          testPushButton.classList.add('hidden');
+        } catch {
+          pushStatusBadge.textContent = 'Unavailable';
+        }
+        return;
+      }
+
+      if (!isPushEnvironmentSupported()) {
+        pushStatusBadge.textContent = 'Unsupported';
+        enablePushButton.disabled = true;
+        enablePushButton.classList.add('opacity-50', 'cursor-not-allowed');
+        testPushButton.classList.add('hidden');
+        return;
+      }
+
+      const permission = Notification.permission;
+      let existingSubscription = null;
+      try {
+        const reg = await registerStorefrontServiceWorker();
+        if (reg && reg.pushManager) {
+          existingSubscription = await reg.pushManager.getSubscription();
+        }
+      } catch {
+        existingSubscription = null;
+      }
+      activePushSubscription = existingSubscription;
+
+      if (permission === 'denied') {
+        pushStatusBadge.textContent = 'Blocked in browser';
+        pushStatusBadge.className = 'rounded-full bg-red-100 px-3 py-1 text-xs font-bold text-red-700';
+        enablePushButton.textContent = 'Notifications blocked';
+        testPushButton.classList.add('hidden');
+      } else if (permission === 'granted' && existingSubscription) {
+        pushStatusBadge.textContent = 'Alerts active';
+        pushStatusBadge.className = 'rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-800';
+        enablePushButton.textContent = 'Disable notifications';
+        testPushButton.classList.remove('hidden');
+        checkoutPushPrompt.classList.add('hidden');
+        await bindPushForOrders(state.trackedOrders.map((entry) => entry.id));
+      } else {
+        pushStatusBadge.textContent = 'Alerts off';
+        pushStatusBadge.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600';
+        enablePushButton.textContent = 'Enable notifications';
+        testPushButton.classList.toggle('hidden', permission !== 'granted');
+      }
+    }
+
+    async function enablePushNotifications() {
+      setPushStatusMessage('');
+
+      if (isNativeCapacitorPushAvailable()) {
+        try {
+          const PushNotifications = window.Capacitor.Plugins.PushNotifications;
+          let perm = await PushNotifications.checkPermissions();
+          if (perm.receive !== 'granted') {
+            perm = await PushNotifications.requestPermissions();
+          }
+          if (perm.receive !== 'granted') {
+            setPushStatusMessage('Allow notifications in Android settings to receive order updates.', true);
+            await refreshPushUI();
+            return;
+          }
+          PushNotifications.addListener('registration', async (token) => {
+            activeFcmToken = token?.value || null;
+            await bindPushForOrders(state.trackedOrders.map((entry) => entry.id));
+            setPushStatusMessage('Push notifications are active for your device.');
+            await refreshPushUI();
+          });
+          PushNotifications.addListener('registrationError', () => {
+            setPushStatusMessage('Push registration requires Firebase google-services.json in the Android build.', true);
+          });
+          PushNotifications.addListener('pushNotificationReceived', (notification) => {
+            showToast(notification?.body || notification?.title || 'Order status updated');
+            pollTrackedOrderStatuses();
+          });
+          await PushNotifications.register();
+        } catch (error) {
+          setPushStatusMessage('Could not enable Android push notifications: ' + error.message, true);
+        }
+        return;
+      }
+
+      if (!isPushEnvironmentSupported()) {
+        setPushStatusMessage('Push notifications are not supported in this browser.', true);
+        return;
+      }
+
+      if (activePushSubscription) {
+        try {
+          const endpoint = activePushSubscription.endpoint;
+          await activePushSubscription.unsubscribe();
+          activePushSubscription = null;
+          await fetch('/api/push/unsubscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint })
+          });
+          setPushStatusMessage('Order push notifications have been turned off for this device.');
+          await refreshPushUI();
+        } catch (error) {
+          setPushStatusMessage('Could not disable notifications: ' + error.message, true);
+        }
+        return;
+      }
+
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          setPushStatusMessage(
+            permission === 'denied'
+              ? 'Notifications are blocked in your browser settings. Allow notifications for this site and try again.'
+              : 'Notification permission was dismissed.',
+            true
+          );
+          await refreshPushUI();
+          return;
+        }
+
+        const registration = await registerStorefrontServiceWorker();
+        if (!registration || !registration.pushManager) {
+          throw new Error('Service worker push manager is unavailable.');
+        }
+
+        const keyRes = await fetch('/api/push/public-key');
+        if (!keyRes.ok) throw new Error('Could not fetch push public key from server.');
+        const { publicKey } = await keyRes.json();
+
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        activePushSubscription = subscription;
+
+        const subRes = await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            subscription: subscription.toJSON(),
+            orderIds: state.trackedOrders.map((entry) => entry.id)
+          })
+        });
+        if (!subRes.ok) throw new Error('Could not save push subscription.');
+
+        await bindPushForOrders(state.trackedOrders.map((entry) => entry.id));
+        setPushStatusMessage('Push notifications enabled! You will be notified when your order status changes.');
+        showToast('Order notifications enabled.');
+        await refreshPushUI();
+      } catch (error) {
+        console.error('Unable to subscribe to push notifications:', error);
+        setPushStatusMessage('Could not enable push notifications: ' + error.message, true);
+      }
+    }
+
+    async function sendTestNotificationAlert() {
+      setPushStatusMessage('');
+      try {
+        if (activePushSubscription) {
+          const response = await fetch('/api/push/test', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subscription: activePushSubscription.toJSON() })
+          });
+          if (response.ok) {
+            setPushStatusMessage('Test push sent! Check your device notification tray.');
+            return;
+          }
+        }
+
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const reg = await registerStorefrontServiceWorker();
+          if (reg && reg.showNotification) {
+            await reg.showNotification('Zawadi Gift Shop · Alerts enabled', {
+              body: 'You will receive live order status updates directly on this device.',
+              icon: './icon.svg',
+              badge: './icon.svg',
+              tag: 'zawadi-test-alert',
+              data: { url: './#orders' }
+            });
+            setPushStatusMessage('Test notification displayed on this device.');
+            return;
+          }
+        }
+        setPushStatusMessage('Enable notifications first to send a test alert.', true);
+      } catch (error) {
+        setPushStatusMessage('Could not send test alert: ' + error.message, true);
+      }
+    }
+
+    async function pollTrackedOrderStatuses() {
+      if (!state.trackedOrders.length) return;
+      const orderIds = state.trackedOrders.map((entry) => entry.id);
+      try {
+        const updatesById = new Map();
+
+        try {
+          const localRes = await fetch('/api/orders/status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderIds })
+          });
+          if (localRes.ok) {
+            const localJson = await localRes.json();
+            for (const row of localJson.statuses || []) {
+              updatesById.set(String(row.id), row);
+            }
+          }
+        } catch {
+          // Ignore status polling error when offline
+        }
+
+        if (!updatesById.size) return;
+
+        let changed = false;
+        const newlyChangedOrders = [];
+
+        state.trackedOrders = state.trackedOrders.map((entry) => {
+          const latest = updatesById.get(String(entry.id));
+          if (!latest) return entry;
+          if (latest.status && latest.status !== entry.status) {
+            changed = true;
+            newlyChangedOrders.push({ ...entry, status: latest.status });
+            return { ...entry, status: latest.status };
+          }
+          return entry;
+        });
+
+        if (changed) {
+          persistTrackedOrders();
+          renderTrackedOrders();
+          for (const updated of newlyChangedOrders) {
+            const transitionKey = `${updated.id}:${updated.status}`;
+            if (notifiedTransitions.has(transitionKey)) continue;
+            notifiedTransitions.add(transitionKey);
+            const meta = ORDER_STATUS_STYLES[updated.status] || ORDER_STATUS_STYLES.pending;
+            showToast(`Order #${updated.reference}: ${meta.label}`);
+            if ('Notification' in window && Notification.permission === 'granted') {
+              const reg = await registerStorefrontServiceWorker();
+              if (reg && reg.showNotification) {
+                reg.showNotification(`Zawadi Gift Shop · Order #${updated.reference}`, {
+                  body: `Your order status is now: ${meta.label}.`,
+                  icon: './icon.svg',
+                  badge: './icon.svg',
+                  tag: `zawadi-order-${updated.id}`,
+                  data: { url: './#orders', orderId: updated.id, status: updated.status }
+                }).catch(() => {});
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Unable to refresh tracked order statuses:', error);
+      }
+    }
+
+    if (enablePushButton) {
+      enablePushButton.addEventListener('click', enablePushNotifications);
+    }
+    if (checkoutEnablePushButton) {
+      checkoutEnablePushButton.addEventListener('click', enablePushNotifications);
+    }
+    if (testPushButton) {
+      testPushButton.addEventListener('click', sendTestNotificationAlert);
+    }
+    if (document.getElementById('refreshTrackedOrders')) {
+      document.getElementById('refreshTrackedOrders').addEventListener('click', async () => {
+        await pollTrackedOrderStatuses();
+        showToast('Order statuses checked.');
+      });
+    }
+
+    if (ownerOrderList) {
+      ownerOrderList.addEventListener('click', async (event) => {
+        const updateButton = event.target.closest('.update-order-status');
+        if (!updateButton) return;
+        const orderId = updateButton.dataset.id;
+        const card = updateButton.closest('article');
+        const select = card?.querySelector('.order-status-select');
+        const newStatus = select?.value;
+        if (!orderId || !newStatus || !supabaseClient) return;
+
+        const orderStatusEl = document.getElementById('ownerOrderStatus');
+        updateButton.disabled = true;
+        updateButton.textContent = 'Updating...';
+        try {
+          const { error: updateError } = await supabaseClient
+            .from('orders')
+            .update({ status: newStatus })
+            .eq('id', orderId);
+          if (updateError) throw updateError;
+
+          const { data: sessionData } = await supabaseClient.auth.getSession();
+          const accessToken = sessionData?.session?.access_token;
+          const order = ownerOrders.find((entry) => String(entry.id) === String(orderId));
+          let pushSummary = '';
+
+          if (accessToken) {
+            const pushResponse = await fetch('/api/push/order-status', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`
+              },
+              body: JSON.stringify({
+                orderId,
+                status: newStatus,
+                customerName: order?.customer_name || ''
+              })
+            });
+            if (pushResponse.ok) {
+              const pushResult = await pushResponse.json();
+              pushSummary = pushResult.sent > 0
+                ? ` Push sent to ${pushResult.sent} device(s).`
+                : ' Status saved (no web push device subscribed for this order yet).';
+            }
+          }
+
+          await refreshOwnerOrders();
+          orderStatusEl.textContent = `Order updated to "${newStatus}".${pushSummary}`;
+          showToast('Order status updated.');
+        } catch (error) {
+          console.error('Unable to update order status:', error);
+          orderStatusEl.textContent = 'Could not update order status: ' + error.message;
+        } finally {
+          updateButton.disabled = false;
+          updateButton.textContent = 'Update & notify';
+        }
+      });
+    }
+
+    if (orderHistoryForm) {
+      orderHistoryForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        await lookupOrderHistory(historyPhoneInput?.value || '');
+      });
+    }
+
     renderProducts();
     updateCartUI();
+    renderTrackedOrders();
+    renderOrderHistory();
+    refreshPushUI();
+    if (historyPhoneInput && state.orderHistoryPhone) {
+      historyPhoneInput.value = state.orderHistoryPhone;
+      lookupOrderHistory(state.orderHistoryPhone, { silent: true });
+    }
     if (cartLoadError) showToast('Some saved cart data was invalid and could not be restored.');
     loadProducts();
+    pollTrackedOrderStatuses();
+    setInterval(() => {
+      if (document.visibilityState === 'visible' && state.trackedOrders.some((order) => order.status === 'pending' || order.status === 'confirmed')) {
+        pollTrackedOrderStatuses();
+      }
+    }, 45000);
   </script>
 
   <nav class="mobile-nav" aria-label="Mobile navigation">

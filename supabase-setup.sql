@@ -145,12 +145,20 @@ alter table public.orders enable row level security;
 alter table public.order_items enable row level security;
 
 grant select on public.orders, public.order_items to authenticated;
+grant update (status) on public.orders to authenticated;
 
 drop policy if exists "Owner can read orders" on public.orders;
 create policy "Owner can read orders"
   on public.orders for select
   to authenticated
   using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'owner');
+
+drop policy if exists "Owner can update order status" on public.orders;
+create policy "Owner can update order status"
+  on public.orders for update
+  to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'owner')
+  with check ((auth.jwt() -> 'app_metadata' ->> 'role') = 'owner');
 
 drop policy if exists "Owner can read order items" on public.order_items;
 create policy "Owner can read order items"
@@ -248,3 +256,180 @@ $$;
 
 revoke all on function public.place_order(text, text, text, text, jsonb) from public;
 grant execute on function public.place_order(text, text, text, text, jsonb) to anon, authenticated;
+
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  platform text not null default 'web' check (platform in ('web', 'android')),
+  endpoint text,
+  p256dh text,
+  auth text,
+  fcm_token text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint push_subscription_target check (
+    (platform = 'web' and endpoint is not null and p256dh is not null and auth is not null)
+    or (platform = 'android' and fcm_token is not null)
+  )
+);
+
+create unique index if not exists push_subscriptions_order_endpoint_idx
+  on public.push_subscriptions (order_id, endpoint)
+  where endpoint is not null;
+
+create unique index if not exists push_subscriptions_order_fcm_idx
+  on public.push_subscriptions (order_id, fcm_token)
+  where fcm_token is not null;
+
+alter table public.push_subscriptions enable row level security;
+grant select, delete on public.push_subscriptions to authenticated;
+
+drop policy if exists "Owner can read push subscriptions" on public.push_subscriptions;
+create policy "Owner can read push subscriptions"
+  on public.push_subscriptions for select
+  to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'owner');
+
+drop policy if exists "Owner can delete push subscriptions" on public.push_subscriptions;
+create policy "Owner can delete push subscriptions"
+  on public.push_subscriptions for delete
+  to authenticated
+  using ((auth.jwt() -> 'app_metadata' ->> 'role') = 'owner');
+
+create or replace function public.register_push_subscription(
+  p_order_id uuid,
+  p_platform text default 'web',
+  p_endpoint text default null,
+  p_p256dh text default null,
+  p_auth text default null,
+  p_fcm_token text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_subscription_id uuid;
+begin
+  if p_order_id is null or not exists (select 1 from public.orders where id = p_order_id) then
+    raise exception 'Order not found.';
+  end if;
+
+  if p_platform = 'web' then
+    if coalesce(btrim(p_endpoint), '') = ''
+      or coalesce(btrim(p_p256dh), '') = ''
+      or coalesce(btrim(p_auth), '') = '' then
+      raise exception 'Web push endpoint and keys are required.';
+    end if;
+
+    insert into public.push_subscriptions (order_id, platform, endpoint, p256dh, auth)
+    values (p_order_id, 'web', btrim(p_endpoint), btrim(p_p256dh), btrim(p_auth))
+    on conflict (order_id, endpoint) where endpoint is not null
+    do update set
+      p256dh = excluded.p256dh,
+      auth = excluded.auth,
+      updated_at = now()
+    returning id into v_subscription_id;
+  elsif p_platform = 'android' then
+    if coalesce(btrim(p_fcm_token), '') = '' then
+      raise exception 'Android FCM token is required.';
+    end if;
+
+    insert into public.push_subscriptions (order_id, platform, fcm_token)
+    values (p_order_id, 'android', btrim(p_fcm_token))
+    on conflict (order_id, fcm_token) where fcm_token is not null
+    do update set updated_at = now()
+    returning id into v_subscription_id;
+  else
+    raise exception 'Unsupported push platform.';
+  end if;
+
+  return v_subscription_id;
+end;
+$$;
+
+revoke all on function public.register_push_subscription(uuid, text, text, text, text, text) from public;
+grant execute on function public.register_push_subscription(uuid, text, text, text, text, text) to anon, authenticated;
+
+create or replace function public.get_order_status(p_order_ids uuid[])
+returns table (
+  id uuid,
+  status text,
+  total integer,
+  created_at timestamptz
+)
+language sql
+security definer
+set search_path = ''
+as $$
+  select o.id, o.status, o.total, o.created_at
+  from public.orders o
+  where o.id = any(coalesce(p_order_ids, array[]::uuid[]));
+$$;
+
+revoke all on function public.get_order_status(uuid[]) from public;
+grant execute on function public.get_order_status(uuid[]) to anon, authenticated;
+
+create or replace function public.get_order_history_by_phone(p_phone text)
+returns table (
+  id uuid,
+  status text,
+  total integer,
+  created_at timestamptz,
+  items jsonb
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_digits text;
+  v_suffix text;
+begin
+  v_digits := regexp_replace(btrim(coalesce(p_phone, '')), '[^0-9]', '', 'g');
+  if char_length(v_digits) not between 7 and 20 then
+    raise exception 'Enter a valid phone number.';
+  end if;
+
+  v_suffix := case
+    when char_length(v_digits) >= 9 and (v_digits ~ '^(254|0)[17]') then right(v_digits, 9)
+    else v_digits
+  end;
+
+  return query
+  select
+    o.id,
+    o.status,
+    o.total,
+    o.created_at,
+    coalesce(
+      (
+        select jsonb_agg(
+          jsonb_build_object(
+            'product_name', oi.product_name,
+            'quantity', oi.quantity,
+            'unit_price', oi.unit_price
+          )
+          order by oi.id
+        )
+        from public.order_items oi
+        where oi.order_id = o.id
+      ),
+      '[]'::jsonb
+    ) as items
+  from public.orders o
+  where (
+    regexp_replace(o.customer_phone, '[^0-9]', '', 'g') = v_digits
+    or (
+      char_length(v_suffix) = 9
+      and regexp_replace(o.customer_phone, '[^0-9]', '', 'g') ~ ('^(254|0)' || v_suffix || '$')
+    )
+  )
+  order by o.created_at desc
+  limit 25;
+end;
+$$;
+
+revoke all on function public.get_order_history_by_phone(text) from public;
+grant execute on function public.get_order_history_by_phone(text) to anon, authenticated;
