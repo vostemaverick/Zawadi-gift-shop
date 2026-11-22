@@ -552,7 +552,7 @@
           </label>
           <label class="sm:col-span-2 flex items-center gap-2 text-sm font-semibold">
             <input id="productPublished" type="checkbox" checked class="rounded border-slate-300 text-pink-600">
-            Visible in the shop
+            In stock (visible in the shop)
           </label>
           <div class="sm:col-span-2 flex flex-wrap gap-3">
             <button id="saveProductButton" type="submit" class="bg-pink-shop text-white px-5 py-2.5 rounded-xl font-bold hover:bg-pink-600">Add product</button>
@@ -561,7 +561,14 @@
           <p id="productFormMessage" class="hidden sm:col-span-2 text-sm" role="status"></p>
         </form>
 
-        <h3 class="font-bold mt-7 mb-3">Products</h3>
+        <div class="mt-7 mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold">Products</h3>
+            <p id="ownerProductSummary" class="text-xs text-slate-500 mt-0.5"></p>
+          </div>
+          <div id="ownerOutOfStockActions" class="hidden flex flex-wrap items-center gap-2"></div>
+        </div>
+        <p id="ownerProductStatus" class="hidden text-sm mb-3" role="status" aria-live="polite"></p>
         <div id="ownerProductList" class="space-y-3"></div>
 
         <div class="mt-8 flex items-center justify-between gap-3">
@@ -659,6 +666,9 @@
     const ownerLoginError = document.getElementById('ownerLoginError');
     const productForm = document.getElementById('productForm');
     const ownerProductList = document.getElementById('ownerProductList');
+    const ownerProductSummary = document.getElementById('ownerProductSummary');
+    const ownerOutOfStockActions = document.getElementById('ownerOutOfStockActions');
+    const ownerProductStatus = document.getElementById('ownerProductStatus');
     const ownerOrderList = document.getElementById('ownerOrderList');
     const installAppButton = document.getElementById('installAppButton');
     const enablePushButton = document.getElementById('enablePushButton');
@@ -675,6 +685,11 @@
     const checkoutEnablePushButton = document.getElementById('checkoutEnablePushButton');
     let ownerProducts = [];
     let ownerOrders = [];
+    let pendingDeleteProductId = '';
+    let pendingBulkDeleteOutOfStock = false;
+    let bulkDeletingOutOfStock = false;
+    const deletingProductIds = new Set();
+    const togglingStockProductIds = new Set();
     let deferredInstallPrompt = null;
     let ownerPasswordFlow = null;
     let activePushSubscription = null;
@@ -734,6 +749,18 @@
       }
     }
 
+    function setOwnerProductStatus(message, isError = false) {
+      if (!ownerProductStatus) return;
+      ownerProductStatus.textContent = message;
+      ownerProductStatus.classList.toggle('hidden', !message);
+      ownerProductStatus.classList.toggle('text-red-600', isError);
+      ownerProductStatus.classList.toggle('text-green-700', !isError);
+    }
+
+    function isProductOutOfStock(product) {
+      return !product?.isPublished || String(product?.badge || '').trim().toLowerCase() === 'out of stock';
+    }
+
     function resetProductForm() {
       productForm.reset();
       document.getElementById('productId').value = '';
@@ -746,23 +773,72 @@
       setProductFormMessage('');
     }
 
+    function renderOwnerOutOfStockActions(outOfStockProducts) {
+      if (!ownerOutOfStockActions || !ownerProductSummary) return;
+      const totalCount = ownerProducts.length;
+      const outOfStockCount = outOfStockProducts.length;
+      ownerProductSummary.textContent = totalCount
+        ? `${totalCount} ${totalCount === 1 ? 'product' : 'products'} · ${outOfStockCount} out of stock`
+        : '';
+
+      if (!outOfStockCount) {
+        pendingBulkDeleteOutOfStock = false;
+        ownerOutOfStockActions.classList.add('hidden');
+        ownerOutOfStockActions.innerHTML = '';
+        return;
+      }
+
+      ownerOutOfStockActions.classList.remove('hidden');
+      if (pendingBulkDeleteOutOfStock) {
+        ownerOutOfStockActions.innerHTML = `
+          <span class="text-xs font-semibold text-red-700">Delete ${outOfStockCount} out-of-stock ${outOfStockCount === 1 ? 'product' : 'products'}?</span>
+          <button id="confirmBulkDeleteOutOfStockButton" type="button" class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold" ${bulkDeletingOutOfStock ? 'disabled' : ''}>${bulkDeletingOutOfStock ? 'Deleting...' : 'Confirm delete'}</button>
+          <button id="cancelBulkDeleteOutOfStockButton" type="button" class="px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold" ${bulkDeletingOutOfStock ? 'disabled' : ''}>Cancel</button>
+        `;
+        return;
+      }
+
+      ownerOutOfStockActions.innerHTML = `
+        <button id="bulkDeleteOutOfStockButton" type="button" class="px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold" ${bulkDeletingOutOfStock ? 'disabled' : ''}>Delete out of stock (${outOfStockCount})</button>
+      `;
+    }
+
     function renderOwnerProducts() {
+      const outOfStockProducts = ownerProducts.filter(isProductOutOfStock);
+      renderOwnerOutOfStockActions(outOfStockProducts);
+
       ownerProductList.innerHTML = ownerProducts.length
-        ? ownerProducts.map((product) => `
-          <article class="flex flex-wrap items-center justify-between gap-3 border border-slate-200 rounded-xl p-3">
+        ? ownerProducts.map((product) => {
+          const id = String(product.id);
+          const outOfStock = isProductOutOfStock(product);
+          const isPendingDelete = pendingDeleteProductId === id;
+          const isDeleting = deletingProductIds.has(id);
+          const isToggling = togglingStockProductIds.has(id);
+          return `
+          <article class="flex flex-wrap items-center justify-between gap-3 border ${outOfStock ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-white'} rounded-xl p-3">
             <div class="flex items-center gap-3 min-w-0">
               <img src="${escapeHTML(safeImageUrl(product.image))}" alt="" class="w-14 h-14 rounded-lg object-cover bg-slate-100">
               <div class="min-w-0">
-                <p class="font-semibold truncate">${escapeHTML(product.name)}</p>
-                <p class="text-sm text-slate-500">${formatMoney(product.price)} · ${escapeHTML(product.category)} · ${product.isPublished ? 'Published' : 'Hidden'}</p>
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="font-semibold truncate">${escapeHTML(product.name)}</p>
+                  <span class="rounded-full px-2 py-0.5 text-xs font-semibold ${outOfStock ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-800'}">${outOfStock ? 'Out of stock' : 'In stock'}</span>
+                </div>
+                <p class="text-sm text-slate-500 mt-0.5">${formatMoney(product.price)} · ${escapeHTML(product.category)} · ${product.isPublished ? 'Published' : 'Hidden'}</p>
               </div>
             </div>
-            <div class="flex gap-2">
-              <button type="button" class="edit-product px-3 py-2 rounded-lg border border-slate-300 text-sm font-semibold" data-id="${escapeHTML(product.id)}">Edit</button>
-              <button type="button" class="delete-product px-3 py-2 rounded-lg border border-red-200 text-red-600 text-sm font-semibold" data-id="${escapeHTML(product.id)}">Delete</button>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="toggle-stock px-3 py-2 rounded-lg border ${outOfStock ? 'border-green-300 bg-green-50 text-green-800 hover:bg-green-100' : 'border-yellow-300 bg-yellow-50 text-yellow-800 hover:bg-yellow-100'} text-sm font-semibold" data-id="${escapeHTML(product.id)}" ${isToggling || isDeleting ? 'disabled' : ''}>${isToggling ? 'Updating...' : outOfStock ? 'Restock' : 'Mark out of stock'}</button>
+              <button type="button" class="edit-product px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-semibold" data-id="${escapeHTML(product.id)}" ${isDeleting ? 'disabled' : ''}>Edit</button>
+              ${isPendingDelete ? `
+                <button type="button" class="confirm-delete-product px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold" data-id="${escapeHTML(product.id)}" ${isDeleting ? 'disabled' : ''}>${isDeleting ? 'Deleting...' : 'Confirm delete'}</button>
+                <button type="button" class="cancel-delete-product px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-sm font-semibold" data-id="${escapeHTML(product.id)}" ${isDeleting ? 'disabled' : ''}>Cancel</button>
+              ` : `
+                <button type="button" class="delete-product px-3 py-2 rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 text-sm font-semibold" data-id="${escapeHTML(product.id)}" ${isDeleting ? 'disabled' : ''}>${isDeleting ? 'Deleting...' : 'Delete'}</button>
+              `}
             </div>
           </article>
-        `).join('')
+        `;
+        }).join('')
         : '<p class="text-sm text-slate-500 border border-dashed rounded-xl p-5 text-center">No products yet. Use the form above to add one.</p>';
     }
 
@@ -953,7 +1029,7 @@
       let changed = false;
       const refreshedCart = state.cart.flatMap((item) => {
         const currentProduct = productsById.get(String(item.id));
-        if (!currentProduct) {
+        if (!currentProduct || isProductOutOfStock(currentProduct)) {
           changed = true;
           return [];
         }
@@ -999,11 +1075,15 @@
         return;
       }
 
-      productGrid.innerHTML = filteredProducts.map((product) => `
+      productGrid.innerHTML = filteredProducts.map((product) => {
+        const outOfStock = isProductOutOfStock(product);
+        return `
         <article class="product-card bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition">
           <div class="relative">
             <img src="${escapeHTML(safeImageUrl(product.image))}" alt="${escapeHTML(product.name)}" class="w-full h-56 object-cover" />
-            ${product.badge ? `<span class="absolute top-3 left-3 bg-white bg-opacity-90 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700">${escapeHTML(product.badge)}</span>` : ''}
+            ${outOfStock
+              ? '<span class="absolute top-3 left-3 bg-red-600 text-white rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em]">Out of stock</span>'
+              : (product.badge ? `<span class="absolute top-3 left-3 bg-white bg-opacity-90 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-700">${escapeHTML(product.badge)}</span>` : '')}
           </div>
           <div class="p-4">
             <div class="flex items-center justify-between gap-3">
@@ -1016,11 +1096,12 @@
                 <p class="text-xl font-black text-pink-shop">${formatMoney(product.price)}</p>
                 ${product.originalPrice && product.originalPrice > product.price ? `<p class="text-xs text-slate-400 line-through">${formatMoney(product.originalPrice)}</p>` : ''}
               </div>
-              <button class="add-to-cart w-full bg-gray-900 hover:bg-pink-500 text-white px-4 py-2 rounded-full text-sm font-semibold transition" data-id="${escapeHTML(product.id)}">Add to cart</button>
+              <button class="add-to-cart w-full ${outOfStock ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-gray-900 hover:bg-pink-500 text-white'} px-4 py-2 rounded-full text-sm font-semibold transition" data-id="${escapeHTML(product.id)}" ${outOfStock ? 'disabled' : ''}>${outOfStock ? 'Out of stock' : 'Add to cart'}</button>
             </div>
           </div>
         </article>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function updateCartUI() {
@@ -1063,7 +1144,7 @@
 
     function addToCart(productId) {
       const product = products.find((item) => String(item.id) === String(productId));
-      if (!product) return;
+      if (!product || isProductOutOfStock(product)) return;
 
       const existingItem = state.cart.find((item) => String(item.id) === String(product.id));
       if (existingItem) {
@@ -1412,6 +1493,9 @@
         return;
       }
       ownerProducts = [];
+      pendingDeleteProductId = '';
+      pendingBulkDeleteOutOfStock = false;
+      setOwnerProductStatus('');
       updateOwnerView(null);
       resetProductForm();
     });
@@ -1635,11 +1719,130 @@
       }
     });
 
+    async function deleteOwnerProductsByIds(idsToDelete, successMessage) {
+      if (!supabaseClient || !idsToDelete.length) return false;
+      const { data, error } = await supabaseClient
+        .from('products')
+        .delete()
+        .in('id', idsToDelete)
+        .select('id');
+      if (error) {
+        console.error('Unable to delete product(s):', error.message);
+        setOwnerProductStatus('Could not delete product: ' + error.message, true);
+        setProductFormMessage('Could not delete product: ' + error.message, true);
+        return false;
+      }
+      if (Array.isArray(data) && data.length === 0) {
+        const permissionMessage = 'No matching products were deleted. Verify your owner account permissions and refresh the list.';
+        setOwnerProductStatus(permissionMessage, true);
+        setProductFormMessage(permissionMessage, true);
+        return false;
+      }
+
+      const editingId = document.getElementById('productId').value;
+      if (editingId && idsToDelete.includes(String(editingId))) {
+        resetProductForm();
+      }
+      await Promise.all([refreshOwnerProducts(), loadProducts()]);
+      setOwnerProductStatus(successMessage);
+      showToast(successMessage);
+      return true;
+    }
+
+    if (ownerOutOfStockActions) {
+      ownerOutOfStockActions.addEventListener('click', async (event) => {
+        if (event.target.closest('#bulkDeleteOutOfStockButton')) {
+          pendingDeleteProductId = '';
+          pendingBulkDeleteOutOfStock = true;
+          setOwnerProductStatus('');
+          renderOwnerProducts();
+          return;
+        }
+
+        if (event.target.closest('#cancelBulkDeleteOutOfStockButton')) {
+          pendingBulkDeleteOutOfStock = false;
+          renderOwnerProducts();
+          return;
+        }
+
+        if (event.target.closest('#confirmBulkDeleteOutOfStockButton')) {
+          const outOfStockProducts = ownerProducts.filter(isProductOutOfStock);
+          const idsToDelete = outOfStockProducts.map((product) => String(product.id));
+          if (!idsToDelete.length) {
+            pendingBulkDeleteOutOfStock = false;
+            renderOwnerProducts();
+            return;
+          }
+          bulkDeletingOutOfStock = true;
+          idsToDelete.forEach((id) => deletingProductIds.add(id));
+          renderOwnerProducts();
+          try {
+            const count = idsToDelete.length;
+            const deleted = await deleteOwnerProductsByIds(
+              idsToDelete,
+              `Deleted ${count} out-of-stock ${count === 1 ? 'product' : 'products'}.`
+            );
+            if (deleted) pendingBulkDeleteOutOfStock = false;
+          } finally {
+            bulkDeletingOutOfStock = false;
+            idsToDelete.forEach((id) => deletingProductIds.delete(id));
+            renderOwnerProducts();
+          }
+        }
+      });
+    }
+
     ownerProductList.addEventListener('click', async (event) => {
+      const toggleButton = event.target.closest('.toggle-stock');
+      if (toggleButton) {
+        const product = ownerProducts.find((item) => String(item.id) === toggleButton.dataset.id);
+        if (!product) return;
+        const id = String(product.id);
+        const currentlyOutOfStock = isProductOutOfStock(product);
+        const nextPublished = currentlyOutOfStock;
+        const updates = { is_published: nextPublished };
+        if (currentlyOutOfStock && String(product.badge || '').trim().toLowerCase() === 'out of stock') {
+          updates.badge = '';
+        }
+
+        pendingDeleteProductId = '';
+        pendingBulkDeleteOutOfStock = false;
+        togglingStockProductIds.add(id);
+        setOwnerProductStatus('');
+        renderOwnerProducts();
+        try {
+          const { error } = await supabaseClient
+            .from('products')
+            .update(updates)
+            .eq('id', product.id);
+          if (error) {
+            console.error('Unable to update product stock status:', error.message);
+            setOwnerProductStatus('Could not update stock status: ' + error.message, true);
+            return;
+          }
+          if (document.getElementById('productId').value === id) {
+            document.getElementById('productPublished').checked = nextPublished;
+            if ('badge' in updates) document.getElementById('productBadge').value = updates.badge;
+          }
+          await Promise.all([refreshOwnerProducts(), loadProducts()]);
+          const statusMsg = nextPublished
+            ? `"${product.name}" marked back in stock.`
+            : `"${product.name}" marked out of stock.`;
+          setOwnerProductStatus(statusMsg);
+          showToast(statusMsg);
+        } finally {
+          togglingStockProductIds.delete(id);
+          renderOwnerProducts();
+        }
+        return;
+      }
+
       const editButton = event.target.closest('.edit-product');
       if (editButton) {
         const product = ownerProducts.find((item) => String(item.id) === editButton.dataset.id);
         if (!product) return;
+        pendingDeleteProductId = '';
+        pendingBulkDeleteOutOfStock = false;
         document.getElementById('productId').value = product.id;
         document.getElementById('productName').value = product.name;
         document.getElementById('productCategory').value = product.category;
@@ -1655,6 +1858,8 @@
         document.getElementById('saveProductButton').textContent = 'Save changes';
         document.getElementById('cancelEditButton').classList.remove('hidden');
         setProductFormMessage('');
+        setOwnerProductStatus('');
+        renderOwnerProducts();
         productForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
         return;
       }
@@ -1662,15 +1867,35 @@
       const deleteButton = event.target.closest('.delete-product');
       if (deleteButton) {
         const product = ownerProducts.find((item) => String(item.id) === deleteButton.dataset.id);
-        if (!product || !window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
-        const { error } = await supabaseClient.from('products').delete().eq('id', product.id);
-        if (error) {
-          console.error('Unable to delete product:', error.message);
-          setProductFormMessage('Could not delete product: ' + error.message, true);
-          return;
+        if (!product) return;
+        pendingBulkDeleteOutOfStock = false;
+        pendingDeleteProductId = String(product.id);
+        setOwnerProductStatus('');
+        renderOwnerProducts();
+        return;
+      }
+
+      const cancelDeleteButton = event.target.closest('.cancel-delete-product');
+      if (cancelDeleteButton) {
+        pendingDeleteProductId = '';
+        renderOwnerProducts();
+        return;
+      }
+
+      const confirmDeleteButton = event.target.closest('.confirm-delete-product');
+      if (confirmDeleteButton) {
+        const product = ownerProducts.find((item) => String(item.id) === confirmDeleteButton.dataset.id);
+        if (!product) return;
+        const id = String(product.id);
+        deletingProductIds.add(id);
+        renderOwnerProducts();
+        try {
+          const deleted = await deleteOwnerProductsByIds([id], `"${product.name}" deleted.`);
+          if (deleted) pendingDeleteProductId = '';
+        } finally {
+          deletingProductIds.delete(id);
+          renderOwnerProducts();
         }
-        await Promise.all([refreshOwnerProducts(), loadProducts()]);
-        showToast('Product deleted.');
       }
     });
 
