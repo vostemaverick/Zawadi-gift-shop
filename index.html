@@ -354,28 +354,28 @@
     </section>
 
     <section id="about" class="bg-gray-900 text-white py-14">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-12 items-center">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 xl:grid-cols-2 gap-8 xl:gap-12 items-center">
         <div>
           <p class="text-sm uppercase tracking-[0.2em] text-pink-300 font-semibold">Why customers love us</p>
           <h3 class="mt-3 text-3xl font-black">Gifts that feel personal, warm and memorable.</h3>
         </div>
-        <div class="grid sm:grid-cols-2 gap-6">
-          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 min-w-0">
+          <div class="min-w-0 bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
             <div class="text-2xl mb-3"></div>
             <h4 class="font-bold mb-2">Gift-ready packaging</h4>
             <p class="text-slate-300 text-sm">Every order is carefully wrapped and prepared for an unforgettable first impression.</p>
           </div>
-          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+          <div class="min-w-0 bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
             <div class="text-2xl mb-3"></div>
             <h4 class="font-bold mb-2">Local delivery</h4>
             <p class="text-slate-300 text-sm">Fast and reliable delivery around Chuka and Ndagani with friendly service.</p>
           </div>
-          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+          <div class="min-w-0 bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
             <div class="text-2xl mb-3"></div>
             <h4 class="font-bold mb-2">Custom orders</h4>
             <p class="text-slate-300 text-sm">Tell us your budget, theme, or recipient and we’ll make the perfect hamper.</p>
           </div>
-          <div class="bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
+          <div class="min-w-0 bg-white bg-opacity-5 border border-white border-opacity-10 rounded-2xl p-5">
             <div class="text-2xl mb-3"></div>
             <h4 class="font-bold mb-2">Lipa na M-Pesa</h4>
             <p class="text-slate-300 text-sm">Convenient payment options for simple and secure purchasing.</p>
@@ -583,7 +583,14 @@
       && !SUPABASE_URL.includes('YOUR_')
       && !SUPABASE_ANON_KEY.includes('YOUR_');
     const supabaseClient = supabaseConfigured && window.supabase
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+          auth: {
+            flowType: 'pkce',
+            detectSessionInUrl: true,
+            persistSession: true,
+            autoRefreshToken: true
+          }
+        })
       : null;
 
     const starterProducts = [
@@ -1220,7 +1227,6 @@
       const resetButton = document.getElementById('forgotOwnerPassword');
       const email = document.getElementById('ownerEmail').value.trim();
       const status = document.getElementById('ownerResetStatus');
-      const resetButton = document.getElementById('forgotOwnerPassword');
       status.classList.remove('text-red-600', 'text-green-700');
       status.classList.add('text-red-600');
       status.textContent = '';
@@ -1249,20 +1255,34 @@
         const { error } = await supabaseClient.auth.resetPasswordForEmail(email, resetOptions);
         if (error) throw error;
         forgotPasswordCooldownUntil = Date.now() + 60000;
+        resetButton.disabled = true;
+        let secondsRemaining = 60;
+        resetButton.textContent = `Try again in ${secondsRemaining}s`;
+        const cooldownTimer = window.setInterval(() => {
+          secondsRemaining -= 1;
+          resetButton.textContent = secondsRemaining > 0
+            ? `Try again in ${secondsRemaining}s`
+            : 'Forgot password?';
+          if (secondsRemaining <= 0) {
+            window.clearInterval(cooldownTimer);
+            resetButton.disabled = false;
+          }
+        }, 1000);
         status.classList.remove('text-red-600');
         status.classList.add('text-green-700');
         status.textContent = 'If an owner account exists for that email, a password reset link has been sent. Check your inbox and spam folder.';
         status.classList.remove('hidden');
       } catch (error) {
         console.error('Unable to request owner password reset:', error.message);
+        resetButton.disabled = false;
+        resetButton.textContent = 'Forgot password?';
         status.textContent = 'Could not send a reset email: ' + error.message;
         status.classList.remove('hidden');
       }
     });
 
     if (supabaseClient) {
-      supabaseClient.auth.onAuthStateChange((event, session) => {
-        if (event !== 'PASSWORD_RECOVERY') return;
+      const openOwnerRecoveryForm = (session) => {
         ownerPanel.classList.remove('hidden');
         if (session?.user?.app_metadata?.role !== 'owner') {
           ownerDashboard.classList.add('hidden');
@@ -1272,7 +1292,58 @@
           return;
         }
         showOwnerPasswordForm('recovery');
+      };
+
+      supabaseClient.auth.onAuthStateChange((event, session) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          openOwnerRecoveryForm(session);
+        }
       });
+
+      async function handlePasswordRecoveryCallback() {
+        const callbackUrl = new URL(window.location.href);
+        const callbackCode = callbackUrl.searchParams.get('code');
+        const callbackError = callbackUrl.searchParams.get('error_description')
+          || callbackUrl.hash.match(/(?:^#|&)error_description=([^&]+)/)?.[1];
+        const hashParams = new URLSearchParams(callbackUrl.hash.replace(/^#/, ''));
+        const isRecoveryHash = hashParams.get('type') === 'recovery';
+
+        if (callbackError) {
+          let message;
+          try {
+            message = decodeURIComponent(callbackError.replace(/\+/g, ' '));
+          } catch {
+            message = callbackError;
+          }
+          ownerPanel.classList.remove('hidden');
+          ownerLoginForm.classList.remove('hidden');
+          ownerLoginError.textContent = `Password reset link could not be used: ${message}`;
+          ownerLoginError.classList.remove('hidden');
+          return;
+        }
+
+        if (callbackCode) {
+          const { data, error } = await supabaseClient.auth.exchangeCodeForSession(callbackCode);
+          if (error) {
+            ownerPanel.classList.remove('hidden');
+            ownerLoginForm.classList.remove('hidden');
+            ownerLoginError.textContent = `Password reset link could not be used: ${error.message}`;
+            ownerLoginError.classList.remove('hidden');
+            return;
+          }
+          openOwnerRecoveryForm(data.session);
+          callbackUrl.searchParams.delete('code');
+          window.history.replaceState({}, document.title, callbackUrl.pathname + callbackUrl.search);
+          return;
+        }
+
+        if (isRecoveryHash) {
+          const { data } = await supabaseClient.auth.getSession();
+          if (data.session) openOwnerRecoveryForm(data.session);
+        }
+      }
+
+      handlePasswordRecoveryCallback();
     }
 
     document.getElementById('refreshOrdersButton').addEventListener('click', refreshOwnerOrders);

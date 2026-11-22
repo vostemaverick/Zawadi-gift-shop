@@ -37,6 +37,12 @@ Open the deployed storefront, choose **Owner**, and sign in with the owner's ema
 
 Serve the page over HTTPS, set Supabase **Authentication → URL Configuration → Site URL** to the deployed storefront, and add that URL to **Redirect URLs**. Also allow `http://127.0.0.1:8000/**` for local browser testing. Browser reset requests return to the current storefront URL; Android app reset requests use the Site URL so the email link opens a reachable page. Do not allow public sign-ups or expose a service-role key.
 
+### Password reset troubleshooting
+
+For browser password reset links, add the exact deployed storefront URL and the local test URL to **Supabase Dashboard → Authentication → URL Configuration → Redirect URLs**. A reset link will not open the password form if the redirect URL is missing or differs from the deployed URL.
+
+After changing URL settings, request a fresh reset email; old reset links may already be expired or tied to the previous redirect URL. The reset link must open the storefront in a browser, not a Supabase JSON/API endpoint.
+
 ## 4. Run the Android app
 
 Install Node.js and Android Studio with its Android SDK. To preview the storefront in a browser, run `npm start` and open `http://127.0.0.1:8000`.
